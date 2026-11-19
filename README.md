@@ -1,4 +1,4 @@
-# Software Services Platform - Backend API
+# SoftwareServices-Api
 
 A clean-architecture, production-grade Web API built with **ASP.NET Core (.NET 10 LTS)** and **PostgreSQL**.
 
