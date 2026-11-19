@@ -501,12 +501,16 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
 
                 var settings = new List<WebsiteSetting>
                 {
-                    new() { SettingKey = "Business:Name", SettingValue = "Your Business Name", SettingGroup = "General", Description = "Official trading company name" },
-                    new() { SettingKey = "Business:Email", SettingValue = "your-email@example.com", SettingGroup = "Contact", Description = "Primary inquiry and support email" },
-                    new() { SettingKey = "Business:Phone", SettingValue = "+91XXXXXXXXXX", SettingGroup = "Contact", Description = "Primary phone number" },
-                    new() { SettingKey = "Business:Address", SettingValue = "Your Business Address", SettingGroup = "Contact", Description = "Physical office or technical lab address" },
-                    new() { SettingKey = "Business:Website", SettingValue = "https://example.com", SettingGroup = "General", Description = "Company website URL" },
-                    new() { SettingKey = "Business:Hours", SettingValue = "Mon - Sat: 9:00 AM - 7:00 PM IST", SettingGroup = "General", Description = "Working hours" },
+                    new() { SettingKey = "Company:Name", SettingValue = "Soft Solutions", SettingGroup = "General", Description = "Official trading company name" },
+                    new() { SettingKey = "Company:Email", SettingValue = "manishkiran8464@gmail.com", SettingGroup = "Contact", Description = "Primary inquiry and support email" },
+                    new() { SettingKey = "Company:Phone", SettingValue = "+91 8464992957", SettingGroup = "Contact", Description = "Primary phone number" },
+                    new() { SettingKey = "Company:WhatsApp", SettingValue = "+91 8464992957", SettingGroup = "Contact", Description = "WhatsApp support number" },
+                    new() { SettingKey = "Company:Address", SettingValue = "Rc puram Hyd", SettingGroup = "Contact", Description = "Physical office or technical lab address" },
+                    new() { SettingKey = "Company:WorkingHours", SettingValue = "Mon - Sat: 9:00 AM - 8:00 PM IST", SettingGroup = "General", Description = "Working hours" },
+                    new() { SettingKey = "Company:Website", SettingValue = "https://example.com", SettingGroup = "General", Description = "Company website URL" },
+                    new() { SettingKey = "Finance:Currency", SettingValue = "INR (₹)", SettingGroup = "Finance", Description = "Primary currency display" },
+                    new() { SettingKey = "Finance:DefaultTaxPercent", SettingValue = "18", SettingGroup = "Finance", Description = "Default GST / Tax percentage" },
+                    new() { SettingKey = "Quotation:DefaultValidityDays", SettingValue = "10", SettingGroup = "Quotation", Description = "Quotation validity duration in days" },
                     new() { SettingKey = "Social:LinkedIn", SettingValue = "https://linkedin.com", SettingGroup = "Social", Description = "LinkedIn profile URL" },
                     new() { SettingKey = "Social:GitHub", SettingValue = "https://github.com", SettingGroup = "Social", Description = "GitHub organization URL" }
                 };

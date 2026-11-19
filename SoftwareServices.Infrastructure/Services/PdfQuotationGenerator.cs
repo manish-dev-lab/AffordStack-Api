@@ -20,24 +20,20 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
     public byte[] GenerateQuotationPdf(Quotation quotation, Customer customer, IEnumerable<QuotationItem> items, Dictionary<string, string>? companySettings = null)
     {
         var businessName = companySettings?.GetValueOrDefault("Company:Name")
-            ?? companySettings?.GetValueOrDefault("Business:Name")
-            ?? _configuration["Business:Name"]
-            ?? "Software Services";
+            ?? _configuration["Company:Name"]
+            ?? "Soft Solutions";
 
         var businessEmail = companySettings?.GetValueOrDefault("Company:Email")
-            ?? companySettings?.GetValueOrDefault("Business:Email")
-            ?? _configuration["Business:Email"]
-            ?? "contact@example.com";
+            ?? _configuration["Company:Email"]
+            ?? "manishkiran8464@gmail.com";
 
         var businessPhone = companySettings?.GetValueOrDefault("Company:Phone")
-            ?? companySettings?.GetValueOrDefault("Business:Phone")
-            ?? _configuration["Business:Phone"]
-            ?? "";
+            ?? _configuration["Company:Phone"]
+            ?? "+91 8464992957";
 
         var businessAddress = companySettings?.GetValueOrDefault("Company:Address")
-            ?? companySettings?.GetValueOrDefault("Business:Address")
-            ?? _configuration["Business:Address"]
-            ?? "";
+            ?? _configuration["Company:Address"]
+            ?? "Rc puram Hyd";
 
         var document = Document.Create(container =>
         {

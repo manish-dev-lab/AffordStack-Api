@@ -30,6 +30,16 @@ public class AdminSettingsController : ControllerBase
     }
 
     /// <summary>
+    /// Batch update website configuration settings
+    /// </summary>
+    [HttpPut("batch")]
+    public async Task<ActionResult<ApiResponse<bool>>> UpdateSettingsBatch([FromBody] Dictionary<string, string> settings)
+    {
+        var result = await _contentService.UpdateSettingsBatchAsync(settings);
+        return Ok(ApiResponse<bool>.Ok(result, "Settings updated successfully."));
+    }
+
+    /// <summary>
     /// Add client testimonial
     /// </summary>
     [HttpPost("testimonials")]
