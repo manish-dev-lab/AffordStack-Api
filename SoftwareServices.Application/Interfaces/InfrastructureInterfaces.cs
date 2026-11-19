@@ -20,5 +20,5 @@ public interface IJwtTokenService
 
 public interface IPdfQuotationGenerator
 {
-    byte[] GenerateQuotationPdf(Quotation quotation, Customer customer, IEnumerable<QuotationItem> items);
+    byte[] GenerateQuotationPdf(Quotation quotation, Customer customer, IEnumerable<QuotationItem> items, Dictionary<string, string>? companySettings = null);
 }
