@@ -2,7 +2,8 @@ name: Deploy Backend to Raspberry Pi
 
 on:
   push:
-    branches: [ main, dev1 ]
+    branches: [ cicd ]
+  workflow_dispatch:
 
 jobs:
   deploy:
