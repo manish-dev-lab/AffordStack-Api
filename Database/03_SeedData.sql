@@ -419,12 +419,12 @@ SELECT setval(pg_get_serial_sequence('testimonials', 'Id'), COALESCE(MAX("Id"), 
 -- 8. Website Settings
 INSERT INTO website_settings ("Id", "SettingKey", "SettingValue", "SettingGroup", "Description", "CreatedAt")
 VALUES
-(1, 'Business:Name', 'Your Business Name', 'General', 'Official trading company name', CURRENT_TIMESTAMP),
-(2, 'Business:Email', 'your-email@example.com', 'Contact', 'Primary inquiry and support email', CURRENT_TIMESTAMP),
-(3, 'Business:Phone', '+91XXXXXXXXXX', 'Contact', 'Primary phone number', CURRENT_TIMESTAMP),
-(4, 'Business:Address', 'Your Business Address', 'Contact', 'Physical office or technical lab address', CURRENT_TIMESTAMP),
-(5, 'Business:Website', 'https://example.com', 'General', 'Company website URL', CURRENT_TIMESTAMP),
-(6, 'Business:Hours', 'Mon - Sat: 9:00 AM - 7:00 PM IST', 'General', 'Working hours', CURRENT_TIMESTAMP),
+(1, 'Company:Name', 'Soft Solutions', 'General', 'Official trading company name', CURRENT_TIMESTAMP),
+(2, 'Company:Email', 'manishkiran8464@gmail.com', 'Contact', 'Primary inquiry and support email', CURRENT_TIMESTAMP),
+(3, 'Company:Phone', '+91 8464992957', 'Contact', 'Primary phone number', CURRENT_TIMESTAMP),
+(4, 'Company:Address', 'Rc puram Hyd', 'Contact', 'Physical office or technical lab address', CURRENT_TIMESTAMP),
+(5, 'Company:Website', 'https://example.com', 'General', 'Company website URL', CURRENT_TIMESTAMP),
+(6, 'Company:WorkingHours', 'Mon - Sat: 9:00 AM - 8:00 PM IST', 'General', 'Working hours', CURRENT_TIMESTAMP),
 (7, 'Social:LinkedIn', 'https://linkedin.com', 'Social', 'LinkedIn profile URL', CURRENT_TIMESTAMP),
 (8, 'Social:GitHub', 'https://github.com', 'Social', 'GitHub organization URL', CURRENT_TIMESTAMP)
 ON CONFLICT ("Id") DO NOTHING;

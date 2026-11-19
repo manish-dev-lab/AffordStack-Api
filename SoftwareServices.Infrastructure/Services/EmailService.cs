@@ -128,24 +128,20 @@ public class EmailService : IEmailService
             s => s.SettingValue);
 
         var name = settings.GetValueOrDefault("Company:Name")
-            ?? settings.GetValueOrDefault("Business:Name")
-            ?? _configuration["Business:Name"]
-            ?? "Software Services";
+            ?? _configuration["Company:Name"]
+            ?? "Soft Solutions";
 
         var email = settings.GetValueOrDefault("Company:Email")
-            ?? settings.GetValueOrDefault("Business:Email")
-            ?? _configuration["Business:Email"]
-            ?? "contact@example.com";
+            ?? _configuration["Company:Email"]
+            ?? "manishkiran8464@gmail.com";
 
         var phone = settings.GetValueOrDefault("Company:Phone")
-            ?? settings.GetValueOrDefault("Business:Phone")
-            ?? _configuration["Business:Phone"]
-            ?? "";
+            ?? _configuration["Company:Phone"]
+            ?? "+91 8464992957";
 
         var address = settings.GetValueOrDefault("Company:Address")
-            ?? settings.GetValueOrDefault("Business:Address")
-            ?? _configuration["Business:Address"]
-            ?? "";
+            ?? _configuration["Company:Address"]
+            ?? "Rc puram Hyd";
 
         return (name, email, phone, address);
     }

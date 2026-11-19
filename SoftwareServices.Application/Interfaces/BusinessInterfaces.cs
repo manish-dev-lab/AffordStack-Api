@@ -97,4 +97,5 @@ public interface IContentService
     // Settings
     Task<Dictionary<string, string>> GetWebsiteSettingsAsync();
     Task<bool> UpdateSettingAsync(UpdateSettingRequest request);
+    Task<bool> UpdateSettingsBatchAsync(Dictionary<string, string> settings);
 }

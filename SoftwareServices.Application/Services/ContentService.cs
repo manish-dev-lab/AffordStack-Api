@@ -409,29 +409,20 @@ public class ContentService : IContentService
 
     public async Task<bool> UpdateSettingAsync(UpdateSettingRequest request)
     {
-        // Save the primary setting
         await UpsertSingleSettingAsync(request.SettingKey, request.SettingValue);
+        await _context.SaveChangesAsync();
+        return true;
+    }
 
-        // Mirror Company <-> Business mappings automatically
-        var keyMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    public async Task<bool> UpdateSettingsBatchAsync(Dictionary<string, string> settings)
+    {
+        foreach (var (key, value) in settings)
         {
-            { "Company:Name", "Business:Name" },
-            { "Business:Name", "Company:Name" },
-            { "Company:Email", "Business:Email" },
-            { "Business:Email", "Company:Email" },
-            { "Company:Phone", "Business:Phone" },
-            { "Business:Phone", "Company:Phone" },
-            { "Company:Address", "Business:Address" },
-            { "Business:Address", "Company:Address" },
-            { "Company:WorkingHours", "Business:Hours" },
-            { "Business:Hours", "Company:WorkingHours" }
-        };
-
-        if (keyMap.TryGetValue(request.SettingKey, out var mirroredKey))
-        {
-            await UpsertSingleSettingAsync(mirroredKey, request.SettingValue);
+            if (!string.IsNullOrWhiteSpace(key))
+            {
+                await UpsertSingleSettingAsync(key, value ?? string.Empty);
+            }
         }
-
         await _context.SaveChangesAsync();
         return true;
     }
@@ -447,7 +438,9 @@ public class ContentService : IContentService
             {
                 SettingKey = key,
                 SettingValue = value,
-                SettingGroup = "General"
+                SettingGroup = key.StartsWith("Company:") ? "Contact" :
+                               key.StartsWith("Finance:") ? "Finance" :
+                               key.StartsWith("Quotation:") ? "Quotation" : "General"
             });
         }
         else
