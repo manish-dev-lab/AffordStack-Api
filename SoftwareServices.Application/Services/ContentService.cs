@@ -409,26 +409,52 @@ public class ContentService : IContentService
 
     public async Task<bool> UpdateSettingAsync(UpdateSettingRequest request)
     {
+        // Save the primary setting
+        await UpsertSingleSettingAsync(request.SettingKey, request.SettingValue);
+
+        // Mirror Company <-> Business mappings automatically
+        var keyMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "Company:Name", "Business:Name" },
+            { "Business:Name", "Company:Name" },
+            { "Company:Email", "Business:Email" },
+            { "Business:Email", "Company:Email" },
+            { "Company:Phone", "Business:Phone" },
+            { "Business:Phone", "Company:Phone" },
+            { "Company:Address", "Business:Address" },
+            { "Business:Address", "Company:Address" },
+            { "Company:WorkingHours", "Business:Hours" },
+            { "Business:Hours", "Company:WorkingHours" }
+        };
+
+        if (keyMap.TryGetValue(request.SettingKey, out var mirroredKey))
+        {
+            await UpsertSingleSettingAsync(mirroredKey, request.SettingValue);
+        }
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    private async Task UpsertSingleSettingAsync(string key, string value)
+    {
         var setting = await _context.WebsiteSettings
-            .FirstOrDefaultAsync(s => s.SettingKey.ToLower() == request.SettingKey.ToLower());
+            .FirstOrDefaultAsync(s => s.SettingKey.ToLower() == key.ToLower());
 
         if (setting == null)
         {
             _context.WebsiteSettings.Add(new WebsiteSetting
             {
-                SettingKey = request.SettingKey,
-                SettingValue = request.SettingValue,
+                SettingKey = key,
+                SettingValue = value,
                 SettingGroup = "General"
             });
         }
         else
         {
-            setting.SettingValue = request.SettingValue;
+            setting.SettingValue = value;
             setting.UpdatedAt = DateTime.UtcNow;
         }
-
-        await _context.SaveChangesAsync();
-        return true;
     }
     #endregion
 
