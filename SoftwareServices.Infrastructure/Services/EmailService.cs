@@ -120,11 +120,39 @@ public class EmailService : IEmailService
         }
     }
 
+    private async Task<(string Name, string Email, string Phone, string Address)> GetCompanyDetailsAsync()
+    {
+        var settings = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToDictionaryAsync(
+            Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AsNoTracking(_context.WebsiteSettings),
+            s => s.SettingKey,
+            s => s.SettingValue);
+
+        var name = settings.GetValueOrDefault("Company:Name")
+            ?? settings.GetValueOrDefault("Business:Name")
+            ?? _configuration["Business:Name"]
+            ?? "Software Services";
+
+        var email = settings.GetValueOrDefault("Company:Email")
+            ?? settings.GetValueOrDefault("Business:Email")
+            ?? _configuration["Business:Email"]
+            ?? "contact@example.com";
+
+        var phone = settings.GetValueOrDefault("Company:Phone")
+            ?? settings.GetValueOrDefault("Business:Phone")
+            ?? _configuration["Business:Phone"]
+            ?? "";
+
+        var address = settings.GetValueOrDefault("Company:Address")
+            ?? settings.GetValueOrDefault("Business:Address")
+            ?? _configuration["Business:Address"]
+            ?? "";
+
+        return (name, email, phone, address);
+    }
+
     public async Task SendEnquiryAcknowledgementAsync(Enquiry enquiry, Customer customer)
     {
-        var businessName = _configuration["Business:Name"] ?? "Software Services Business";
-        var businessEmail = _configuration["Business:Email"] ?? "support@example.com";
-        var businessPhone = _configuration["Business:Phone"] ?? "+91XXXXXXXXXX";
+        var (businessName, businessEmail, businessPhone, _) = await GetCompanyDetailsAsync();
 
         var body = $@"
 <div style=""font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"">
@@ -157,8 +185,8 @@ public class EmailService : IEmailService
 
     public async Task SendAdminEnquiryNotificationAsync(Enquiry enquiry, Customer customer)
     {
-        var adminEmail = _configuration["Smtp:AdminNotificationEmail"] ?? _configuration["Business:Email"] ?? "admin@example.com";
-        var businessName = _configuration["Business:Name"] ?? "Software Services Business";
+        var (businessName, businessEmail, _, _) = await GetCompanyDetailsAsync();
+        var adminEmail = _configuration["Smtp:AdminNotificationEmail"] ?? businessEmail;
 
         var body = $@"
 <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"">
@@ -186,7 +214,7 @@ public class EmailService : IEmailService
 
     public async Task SendQuotationEmailAsync(Quotation quotation, Customer customer, string quoteLink, byte[]? pdfBytes = null)
     {
-        var businessName = _configuration["Business:Name"] ?? "Software Services Business";
+        var (businessName, _, _, _) = await GetCompanyDetailsAsync();
 
         var body = $@"
 <div style=""font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"">
@@ -225,7 +253,8 @@ public class EmailService : IEmailService
 
     public async Task SendQuotationAcceptedNotificationAsync(Quotation quotation, Customer customer)
     {
-        var adminEmail = _configuration["Smtp:AdminNotificationEmail"] ?? _configuration["Business:Email"] ?? "admin@example.com";
+        var (_, businessEmail, _, _) = await GetCompanyDetailsAsync();
+        var adminEmail = _configuration["Smtp:AdminNotificationEmail"] ?? businessEmail;
         var body = $@"
 <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;"">
   <h2 style=""color: #16a34a; margin-top: 0;"">Quotation Accepted!</h2>
@@ -241,7 +270,8 @@ public class EmailService : IEmailService
 
     public async Task SendQuotationRejectedNotificationAsync(Quotation quotation, Customer customer)
     {
-        var adminEmail = _configuration["Smtp:AdminNotificationEmail"] ?? _configuration["Business:Email"] ?? "admin@example.com";
+        var (_, businessEmail, _, _) = await GetCompanyDetailsAsync();
+        var adminEmail = _configuration["Smtp:AdminNotificationEmail"] ?? businessEmail;
         var body = $@"
 <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;"">
   <h2 style=""color: #dc2626; margin-top: 0;"">Quotation Declined</h2>

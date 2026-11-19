@@ -17,12 +17,27 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    public byte[] GenerateQuotationPdf(Quotation quotation, Customer customer, IEnumerable<QuotationItem> items)
+    public byte[] GenerateQuotationPdf(Quotation quotation, Customer customer, IEnumerable<QuotationItem> items, Dictionary<string, string>? companySettings = null)
     {
-        var businessName = _configuration["Business:Name"] ?? "Software Services Business";
-        var businessEmail = _configuration["Business:Email"] ?? "contact@example.com";
-        var businessPhone = _configuration["Business:Phone"] ?? "+91XXXXXXXXXX";
-        var businessAddress = _configuration["Business:Address"] ?? "Tech Hub Center, Innovation Boulevard";
+        var businessName = companySettings?.GetValueOrDefault("Company:Name")
+            ?? companySettings?.GetValueOrDefault("Business:Name")
+            ?? _configuration["Business:Name"]
+            ?? "Software Services";
+
+        var businessEmail = companySettings?.GetValueOrDefault("Company:Email")
+            ?? companySettings?.GetValueOrDefault("Business:Email")
+            ?? _configuration["Business:Email"]
+            ?? "contact@example.com";
+
+        var businessPhone = companySettings?.GetValueOrDefault("Company:Phone")
+            ?? companySettings?.GetValueOrDefault("Business:Phone")
+            ?? _configuration["Business:Phone"]
+            ?? "";
+
+        var businessAddress = companySettings?.GetValueOrDefault("Company:Address")
+            ?? companySettings?.GetValueOrDefault("Business:Address")
+            ?? _configuration["Business:Address"]
+            ?? "";
 
         var document = Document.Create(container =>
         {

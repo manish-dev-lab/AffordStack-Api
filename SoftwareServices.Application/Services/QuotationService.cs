@@ -240,7 +240,8 @@ public class QuotationService : IQuotationService
         await _context.SaveChangesAsync();
 
         var secureQuoteLink = $"{baseQuotationUrl.TrimEnd('/')}/quote/{quotation.SecureToken}";
-        var pdfBytes = _pdfGenerator.GenerateQuotationPdf(quotation, quotation.Customer!, quotation.Items);
+        var settings = await _context.WebsiteSettings.AsNoTracking().ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue);
+        var pdfBytes = _pdfGenerator.GenerateQuotationPdf(quotation, quotation.Customer!, quotation.Items, settings);
 
         await _emailService.SendQuotationEmailAsync(quotation, quotation.Customer!, secureQuoteLink, pdfBytes);
         return true;
@@ -426,7 +427,8 @@ public class QuotationService : IQuotationService
         if (quotation == null)
             throw new NotFoundException($"Quotation #{id} not found.");
 
-        return _pdfGenerator.GenerateQuotationPdf(quotation, quotation.Customer!, quotation.Items);
+        var settings = await _context.WebsiteSettings.AsNoTracking().ToDictionaryAsync(s => s.SettingKey, s => s.SettingValue);
+        return _pdfGenerator.GenerateQuotationPdf(quotation, quotation.Customer!, quotation.Items, settings);
     }
 
     private static QuotationDto MapToDto(Quotation q, string enquiryRef, Customer c)
