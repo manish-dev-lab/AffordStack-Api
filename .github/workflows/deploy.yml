@@ -2,7 +2,7 @@ name: Deploy Backend to Raspberry Pi
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev1 ]
 
 jobs:
   deploy:
