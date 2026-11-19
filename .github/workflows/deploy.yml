@@ -1,0 +1,26 @@
+name: Deploy Backend to Raspberry Pi
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, arm64]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build & Update Backend Container
+        run: |
+          docker build -t softwareservices-backend:latest .
+          docker stop backend || true
+          docker rm backend || true
+          docker run -d \
+            --name backend \
+            --restart always \
+            --network app-network \
+            -e ConnectionStrings__DefaultConnection="Host=postgres_db;Port=5432;Database=software_services_db;Username=devuser;Password=devpassword123;Include Error Detail=true" \
+            softwareservices-backend:latest
+          docker image prune -f
