@@ -196,4 +196,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Redirect root URL to Swagger in Development
+if (app.Environment.IsDevelopment())
+{
+    app.MapGet("/", () => Results.Redirect("/swagger"));
+}
+
 app.Run();
