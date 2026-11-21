@@ -9,6 +9,13 @@ public class UserRegisterRequest
     public string PhoneNumber { get; set; } = string.Empty;
     public string? CompanyName { get; set; }
     public string Password { get; set; } = string.Empty;
+    public string? Otp { get; set; }
+}
+
+public class SendRegistrationOtpRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
 }
 
 public class UserLoginRequest

@@ -19,6 +19,16 @@ public class UserAuthController : ControllerBase
     }
 
     /// <summary>
+    /// Send OTP email verification code for new user account registration
+    /// </summary>
+    [HttpPost("send-otp")]
+    public async Task<ActionResult<ApiResponse<bool>>> SendRegistrationOtp([FromBody] SendRegistrationOtpRequest request)
+    {
+        var result = await _userAuthService.SendRegistrationOtpAsync(request);
+        return Ok(ApiResponse<bool>.Ok(result, "Verification code sent to your email address. Please check your inbox."));
+    }
+
+    /// <summary>
     /// Register a new user account (Optional for quotation requests)
     /// </summary>
     [HttpPost("register")]
