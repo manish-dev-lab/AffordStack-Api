@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using SoftwareServices.Application.Common;
 using SoftwareServices.Application.Common.Exceptions;
@@ -19,16 +20,27 @@ public class EnquiryService : IEnquiryService
         _emailService = emailService;
     }
 
+    private static string GenerateReferenceNumber()
+    {
+        var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
+        Span<byte> randomBytes = stackalloc byte[4];
+        RandomNumberGenerator.Fill(randomBytes);
+        var token = Convert.ToHexString(randomBytes);
+        return $"ENQ-{datePrefix}-{token}";
+    }
+
     public async Task<EnquiryResponseDto> SubmitEnquiryAsync(CreateEnquiryRequest request, (string FileName, string ContentType, byte[] Bytes)? attachment = null)
     {
-        var cleanEmail = request.Email.Trim().ToLower();
+        var cleanEmail = request.Email.Trim().ToLowerInvariant();
 
-        // Find or create customer
+        // 1. Find or create customer
         var customer = await _context.Customers
             .FirstOrDefaultAsync(c => c.Email.ToLower() == cleanEmail);
 
+        bool isNewCustomer = false;
         if (customer == null)
         {
+            isNewCustomer = true;
             customer = new Customer
             {
                 FullName = request.FullName.Trim(),
@@ -37,7 +49,6 @@ public class EnquiryService : IEnquiryService
                 CompanyName = request.CompanyName?.Trim()
             };
             _context.Customers.Add(customer);
-            await _context.SaveChangesAsync();
         }
         else
         {
@@ -48,25 +59,21 @@ public class EnquiryService : IEnquiryService
                 customer.CompanyName = request.CompanyName.Trim();
         }
 
-        // Generate Unique Reference Number: ENQ-yyyyMMdd-XXXX
-        var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
-        var countToday = await _context.Enquiries
-            .CountAsync(e => e.ReferenceNumber.StartsWith($"ENQ-{datePrefix}"));
-        var refNumber = $"ENQ-{datePrefix}-{(countToday + 1):D4}";
-
-        // Find category if ID is missing but name is provided
+        // 2. Resolve Category ID if name was provided
         int? categoryId = request.ServiceCategoryId;
         if (!categoryId.HasValue && !string.IsNullOrWhiteSpace(request.ServiceCategoryName))
         {
             var matchedCat = await _context.ServiceCategories
+                .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Name.ToLower() == request.ServiceCategoryName.ToLower());
             if (matchedCat != null) categoryId = matchedCat.Id;
         }
 
+        // 3. Create Enquiry with high-entropy collision-free reference
+        var refNumber = GenerateReferenceNumber();
         var enquiry = new Enquiry
         {
             ReferenceNumber = refNumber,
-            CustomerId = customer.Id,
             Customer = customer,
             ServiceCategoryId = categoryId,
             RequiredTechnology = request.RequiredTechnology.Trim(),
@@ -78,10 +85,14 @@ public class EnquiryService : IEnquiryService
             Status = EnquiryStatus.New
         };
 
-        _context.Enquiries.Add(enquiry);
-        await _context.SaveChangesAsync();
+        if (!isNewCustomer)
+        {
+            enquiry.CustomerId = customer.Id;
+        }
 
-        // Handle attachment if any
+        _context.Enquiries.Add(enquiry);
+
+        // 4. Handle attachment if present (save file and attach entity in same transaction)
         if (attachment.HasValue && attachment.Value.Bytes.Length > 0)
         {
             var safeDir = Path.Combine(Directory.GetCurrentDirectory(), "Storage", "Attachments");
@@ -92,7 +103,7 @@ public class EnquiryService : IEnquiryService
 
             var attRecord = new EnquiryAttachment
             {
-                EnquiryId = enquiry.Id,
+                Enquiry = enquiry,
                 OriginalFileName = attachment.Value.FileName,
                 StoredFileName = storedName,
                 ContentType = attachment.Value.ContentType,
@@ -100,10 +111,36 @@ public class EnquiryService : IEnquiryService
                 StoragePath = fullPath
             };
             _context.EnquiryAttachments.Add(attRecord);
-            await _context.SaveChangesAsync();
         }
 
-        // Trigger emails safely (background/outbox handles resilience)
+        // 5. Persist everything in a single atomic database round trip
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException) when (isNewCustomer)
+        {
+            // Concurrency race: Another request concurrently registered this customer email.
+            // Clear uncommitted Customer entry, re-fetch the committed Customer, and re-save the enquiry.
+            _context.Entry(customer).State = EntityState.Detached;
+
+            var existingCustomer = await _context.Customers
+                .FirstOrDefaultAsync(c => c.Email.ToLower() == cleanEmail);
+
+            if (existingCustomer != null)
+            {
+                customer = existingCustomer;
+                enquiry.Customer = null;
+                enquiry.CustomerId = existingCustomer.Id;
+                await _context.SaveChangesAsync();
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        // 6. Trigger non-blocking emails
         try
         {
             await _emailService.SendEnquiryAcknowledgementAsync(enquiry, customer);
@@ -111,12 +148,12 @@ public class EnquiryService : IEnquiryService
         }
         catch
         {
-            // Logging occurs inside email service, enquiry is safely committed
+            // Background dispatcher/logging catches any edge issues; enquiry is safely committed.
         }
 
         return new EnquiryResponseDto
         {
-            ReferenceNumber = refNumber,
+            ReferenceNumber = enquiry.ReferenceNumber,
             Message = "Your quotation enquiry has been submitted successfully! We have sent a confirmation email to your inbox.",
             CreatedAt = enquiry.CreatedAt
         };

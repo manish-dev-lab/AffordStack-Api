@@ -101,4 +101,40 @@ public class EnquiryServiceTests
         Assert.Equal(EnquiryStatus.Reviewed, refreshed.Status);
         Assert.Single(refreshed.Notes);
     }
+
+    [Fact]
+    public async Task SubmitEnquiry_ConcurrentSubmissions_GenerateUniqueReferenceNumbers()
+    {
+        // Arrange
+        using var context = CreateInMemoryDbContext();
+        var mockEmail = new Mock<IEmailService>();
+        var service = new EnquiryService(context, mockEmail.Object);
+
+        const int totalSubmissions = 50;
+        var tasks = new List<Task<EnquiryResponseDto>>();
+
+        for (int i = 0; i < totalSubmissions; i++)
+        {
+            var req = new CreateEnquiryRequest
+            {
+                FullName = $"User {i}",
+                Email = $"user{i}@test.com",
+                PhoneNumber = "1234567890",
+                ProjectTitle = $"Concurrent Project {i}",
+                ProjectDescription = "Detailed description of concurrent test project.",
+                RequiredTechnology = ".NET / React",
+                EstimatedBudget = "$10,000"
+            };
+
+            tasks.Add(service.SubmitEnquiryAsync(req));
+        }
+
+        // Act
+        var results = await Task.WhenAll(tasks);
+
+        // Assert
+        Assert.Equal(totalSubmissions, results.Length);
+        var uniqueRefs = results.Select(r => r.ReferenceNumber).Distinct().ToList();
+        Assert.Equal(totalSubmissions, uniqueRefs.Count); // All 50 must have distinct reference numbers
+    }
 }

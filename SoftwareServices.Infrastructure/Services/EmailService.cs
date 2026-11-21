@@ -14,15 +14,20 @@ public class EmailService : IEmailService
     private readonly IConfiguration _configuration;
     private readonly ILogger<EmailService> _logger;
     private readonly IApplicationDbContext _context;
+    private readonly IBackgroundEmailQueue? _emailQueue;
+    private static (string Name, string Email, string Phone, string Address)? _cachedCompanyDetails;
+    private static DateTime _cacheExpiresAt = DateTime.MinValue;
 
     public EmailService(
         IConfiguration configuration,
         ILogger<EmailService> logger,
-        IApplicationDbContext context)
+        IApplicationDbContext context,
+        IBackgroundEmailQueue? emailQueue = null)
     {
         _configuration = configuration;
         _logger = logger;
         _context = context;
+        _emailQueue = emailQueue;
     }
 
     public async Task QueueEmailAsync(string recipientEmail, string recipientName, string subject, string bodyHtml, string? attachmentPath = null, string? attachmentName = null)
@@ -122,28 +127,48 @@ public class EmailService : IEmailService
 
     private async Task<(string Name, string Email, string Phone, string Address)> GetCompanyDetailsAsync()
     {
-        var settings = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToDictionaryAsync(
-            Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AsNoTracking(_context.WebsiteSettings),
-            s => s.SettingKey,
-            s => s.SettingValue);
+        if (_cachedCompanyDetails.HasValue && DateTime.UtcNow < _cacheExpiresAt)
+        {
+            return _cachedCompanyDetails.Value;
+        }
 
-        var name = settings.GetValueOrDefault("Company:Name")
-            ?? _configuration["Company:Name"]
-            ?? "Soft Solutions";
+        try
+        {
+            var settings = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToDictionaryAsync(
+                Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.AsNoTracking(_context.WebsiteSettings),
+                s => s.SettingKey,
+                s => s.SettingValue);
 
-        var email = settings.GetValueOrDefault("Company:Email")
-            ?? _configuration["Company:Email"]
-            ?? "manishkiran8464@gmail.com";
+            var name = settings.GetValueOrDefault("Company:Name")
+                ?? _configuration["Company:Name"]
+                ?? "Software Services";
 
-        var phone = settings.GetValueOrDefault("Company:Phone")
-            ?? _configuration["Company:Phone"]
-            ?? "+91 8464992957";
+            var email = settings.GetValueOrDefault("Company:Email")
+                ?? _configuration["Company:Email"]
+                ?? "manishkiran8464@gmail.com";
 
-        var address = settings.GetValueOrDefault("Company:Address")
-            ?? _configuration["Company:Address"]
-            ?? "Rc puram Hyd";
+            var phone = settings.GetValueOrDefault("Company:Phone")
+                ?? _configuration["Company:Phone"]
+                ?? "+91 8464992957";
 
-        return (name, email, phone, address);
+            var address = settings.GetValueOrDefault("Company:Address")
+                ?? _configuration["Company:Address"]
+                ?? "Hyderabad";
+
+            var result = (name, email, phone, address);
+            _cachedCompanyDetails = result;
+            _cacheExpiresAt = DateTime.UtcNow.AddMinutes(10);
+            return result;
+        }
+        catch
+        {
+            return (
+                _configuration["Company:Name"] ?? "Software Services",
+                _configuration["Company:Email"] ?? "manishkiran8464@gmail.com",
+                _configuration["Company:Phone"] ?? "+91 8464992957",
+                _configuration["Company:Address"] ?? "Hyderabad"
+            );
+        }
     }
 
     public async Task SendEnquiryAcknowledgementAsync(Enquiry enquiry, Customer customer)
@@ -176,7 +201,16 @@ public class EmailService : IEmailService
   </div>
 </div>";
 
-        await SendEmailDirectAsync(customer.Email, customer.FullName, $"Enquiry Received [{enquiry.ReferenceNumber}] - {businessName}", body);
+        var subject = $"Enquiry Received [{enquiry.ReferenceNumber}] - {businessName}";
+
+        if (_emailQueue != null)
+        {
+            await _emailQueue.QueueEmailAsync(new QueuedEmailMessage(customer.Email, customer.FullName, subject, body));
+        }
+        else
+        {
+            await SendEmailDirectAsync(customer.Email, customer.FullName, subject, body);
+        }
     }
 
     public async Task SendAdminEnquiryNotificationAsync(Enquiry enquiry, Customer customer)
@@ -205,7 +239,16 @@ public class EmailService : IEmailService
   </div>
 </div>";
 
-        await SendEmailDirectAsync(adminEmail, "Admin Portal", $"New Enquiry: {enquiry.ProjectTitle} [{enquiry.ReferenceNumber}]", body);
+        var subject = $"New Enquiry: {enquiry.ProjectTitle} [{enquiry.ReferenceNumber}]";
+
+        if (_emailQueue != null)
+        {
+            await _emailQueue.QueueEmailAsync(new QueuedEmailMessage(adminEmail, "Admin Portal", subject, body));
+        }
+        else
+        {
+            await SendEmailDirectAsync(adminEmail, "Admin Portal", subject, body);
+        }
     }
 
     public async Task SendQuotationEmailAsync(Quotation quotation, Customer customer, string quoteLink, byte[]? pdfBytes = null)
@@ -244,12 +287,21 @@ public class EmailService : IEmailService
 </div>";
 
         var attName = $"Quotation_{quotation.QuotationNumber}.pdf";
-        await SendEmailDirectAsync(customer.Email, customer.FullName, $"Quotation Proposal [{quotation.QuotationNumber}] - {businessName}", body, pdfBytes, attName);
+        var subject = $"Quotation Proposal [{quotation.QuotationNumber}] - {businessName}";
+
+        if (_emailQueue != null)
+        {
+            await _emailQueue.QueueEmailAsync(new QueuedEmailMessage(customer.Email, customer.FullName, subject, body, pdfBytes, attName));
+        }
+        else
+        {
+            await SendEmailDirectAsync(customer.Email, customer.FullName, subject, body, pdfBytes, attName);
+        }
     }
 
     public async Task SendQuotationAcceptedNotificationAsync(Quotation quotation, Customer customer)
     {
-        var (_, businessEmail, _, _) = await GetCompanyDetailsAsync();
+        var (businessName, businessEmail, _, _) = await GetCompanyDetailsAsync();
         var adminEmail = _configuration["Smtp:AdminNotificationEmail"] ?? businessEmail;
         var body = $@"
 <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;"">
@@ -261,12 +313,21 @@ public class EmailService : IEmailService
   <p>A linked project record has been automatically initiated.</p>
 </div>";
 
-        await SendEmailDirectAsync(adminEmail, "Admin", $"Quotation ACCEPTED: {quotation.QuotationNumber}", body);
+        var subject = $"Quotation ACCEPTED: {quotation.QuotationNumber}";
+
+        if (_emailQueue != null)
+        {
+            await _emailQueue.QueueEmailAsync(new QueuedEmailMessage(adminEmail, "Admin", subject, body));
+        }
+        else
+        {
+            await SendEmailDirectAsync(adminEmail, "Admin", subject, body);
+        }
     }
 
     public async Task SendQuotationRejectedNotificationAsync(Quotation quotation, Customer customer)
     {
-        var (_, businessEmail, _, _) = await GetCompanyDetailsAsync();
+        var (businessName, businessEmail, _, _) = await GetCompanyDetailsAsync();
         var adminEmail = _configuration["Smtp:AdminNotificationEmail"] ?? businessEmail;
         var body = $@"
 <div style=""font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;"">
@@ -275,6 +336,15 @@ public class EmailService : IEmailService
   <p><strong>Customer Remarks:</strong> {quotation.ResponseRemarks ?? "None provided"}</p>
 </div>";
 
-        await SendEmailDirectAsync(adminEmail, "Admin", $"Quotation DECLINED: {quotation.QuotationNumber}", body);
+        var subject = $"Quotation DECLINED: {quotation.QuotationNumber}";
+
+        if (_emailQueue != null)
+        {
+            await _emailQueue.QueueEmailAsync(new QueuedEmailMessage(adminEmail, "Admin", subject, body));
+        }
+        else
+        {
+            await SendEmailDirectAsync(adminEmail, "Admin", subject, body);
+        }
     }
 }

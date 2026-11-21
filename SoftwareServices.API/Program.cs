@@ -29,6 +29,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<ApplicationDbContext>());
 
 // 2. Register Application & Infrastructure Services
+builder.Services.AddSingleton<IBackgroundEmailQueue, BackgroundEmailQueue>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IPdfQuotationGenerator, PdfQuotationGenerator>();
@@ -41,6 +42,7 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IContentService, ContentService>();
 
 // 3. Background Services
+builder.Services.AddHostedService<BackgroundEmailWorker>();
 builder.Services.AddHostedService<EmailOutboxProcessor>();
 
 // 4. FluentValidation
