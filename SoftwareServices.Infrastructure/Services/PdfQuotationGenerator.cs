@@ -35,6 +35,18 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
             ?? _configuration["Company:Address"]
             ?? "Rc puram Hyd";
 
+        var currencySetting = companySettings?.GetValueOrDefault("Finance:Currency")
+            ?? _configuration["Finance:Currency"]
+            ?? "INR (₹)";
+
+        var currencyCode = currencySetting.Contains("(")
+            ? currencySetting.Split('(')[0].Trim()
+            : currencySetting;
+
+        var currencySymbol = currencySetting.Contains("(") && currencySetting.Contains(")")
+            ? currencySetting.Split('(')[1].Replace(")", "").Trim()
+            : currencyCode;
+
         var document = Document.Create(container =>
         {
             container.Page(page =>
@@ -71,7 +83,7 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
                 // Content
                 page.Content().PaddingVertical(10).Column(col =>
                 {
-                    // Customer Info
+                    // Customer & Project Info Cards
                     col.Item().Row(row =>
                     {
                         row.RelativeItem().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(c =>
@@ -88,8 +100,14 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
 
                         row.RelativeItem().Border(1).BorderColor(Colors.Grey.Lighten2).Padding(10).Column(c =>
                         {
-                            c.Item().Text("PROJECT SUMMARY:").FontSize(9).Bold().FontColor(Colors.Blue.Darken2);
+                            c.Item().Text("PROJECT DETAILS:").FontSize(9).Bold().FontColor(Colors.Blue.Darken2);
                             c.Item().Text(quotation.ServiceDescription).Bold();
+                            if (quotation.Enquiry != null)
+                            {
+                                c.Item().Text($"Ref: #{quotation.Enquiry.ReferenceNumber}").FontSize(8).FontColor(Colors.Grey.Darken1);
+                                if (!string.IsNullOrWhiteSpace(quotation.Enquiry.RequiredTechnology))
+                                    c.Item().Text($"Tech: {quotation.Enquiry.RequiredTechnology}").FontSize(8).FontColor(Colors.Grey.Darken1);
+                            }
                             c.Item().Text($"Expected Delivery: {quotation.ExpectedDeliveryDate:dd MMM yyyy}");
                             c.Item().Text($"Status: {quotation.Status}");
                         });
@@ -123,8 +141,8 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
                         {
                             header.Cell().Background(Colors.Grey.Lighten3).Padding(6).Text("Deliverable / Module").Bold();
                             header.Cell().Background(Colors.Grey.Lighten3).Padding(6).AlignCenter().Text("Qty").Bold();
-                            header.Cell().Background(Colors.Grey.Lighten3).Padding(6).AlignRight().Text("Unit Price").Bold();
-                            header.Cell().Background(Colors.Grey.Lighten3).Padding(6).AlignRight().Text("Total Amount").Bold();
+                            header.Cell().Background(Colors.Grey.Lighten3).Padding(6).AlignRight().Text($"Unit Price ({currencySymbol})").Bold();
+                            header.Cell().Background(Colors.Grey.Lighten3).Padding(6).AlignRight().Text($"Total ({currencySymbol})").Bold();
                         });
 
                         var itemList = items.ToList();
@@ -133,8 +151,8 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
                             table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6)
                                 .Text(quotation.ServiceDescription);
                             table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignCenter().Text("1");
-                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignRight().Text($"INR {quotation.DevelopmentCost:N2}");
-                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignRight().Text($"INR {quotation.DevelopmentCost:N2}");
+                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignRight().Text($"{currencyCode} {quotation.DevelopmentCost:N2}");
+                            table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignRight().Text($"{currencyCode} {quotation.DevelopmentCost:N2}");
                         }
                         else
                         {
@@ -147,8 +165,8 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
                                         ic.Item().Text(item.Description).FontSize(8).FontColor(Colors.Grey.Darken1);
                                 });
                                 table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignCenter().Text(item.Quantity.ToString());
-                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignRight().Text($"INR {item.UnitPrice:N2}");
-                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignRight().Text($"INR {item.TotalPrice:N2}");
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignRight().Text($"{currencyCode} {item.UnitPrice:N2}");
+                                table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(6).AlignRight().Text($"{currencyCode} {item.TotalPrice:N2}");
                             }
                         }
                     });
@@ -159,14 +177,14 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
                         sc.Item().Row(r =>
                         {
                             r.RelativeItem().Text("Development Cost:");
-                            r.RelativeItem().AlignRight().Text($"INR {quotation.DevelopmentCost:N2}");
+                            r.RelativeItem().AlignRight().Text($"{currencyCode} {quotation.DevelopmentCost:N2}");
                         });
                         if (quotation.AdditionalCost > 0)
                         {
                             sc.Item().Row(r =>
                             {
                                 r.RelativeItem().Text("Additional Cost:");
-                                r.RelativeItem().AlignRight().Text($"INR {quotation.AdditionalCost:N2}");
+                                r.RelativeItem().AlignRight().Text($"{currencyCode} {quotation.AdditionalCost:N2}");
                             });
                         }
                         if (quotation.TaxAmount > 0)
@@ -174,24 +192,24 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
                             sc.Item().Row(r =>
                             {
                                 r.RelativeItem().Text($"Tax ({quotation.TaxRate}%):");
-                                r.RelativeItem().AlignRight().Text($"INR {quotation.TaxAmount:N2}");
+                                r.RelativeItem().AlignRight().Text($"{currencyCode} {quotation.TaxAmount:N2}");
                             });
                         }
                         sc.Item().PaddingVertical(4).LineHorizontal(1).LineColor(Colors.Grey.Medium);
                         sc.Item().Row(r =>
                         {
                             r.RelativeItem().Text("Total Amount:").Bold().FontSize(11);
-                            r.RelativeItem().AlignRight().Text($"INR {quotation.TotalAmount:N2}").Bold().FontSize(11).FontColor(Colors.Blue.Darken3);
+                            r.RelativeItem().AlignRight().Text($"{currencyCode} {quotation.TotalAmount:N2}").Bold().FontSize(11).FontColor(Colors.Blue.Darken3);
                         });
                         sc.Item().Row(r =>
                         {
                             r.RelativeItem().Text("Advance Required:").Bold();
-                            r.RelativeItem().AlignRight().Text($"INR {quotation.AdvancePaymentAmount:N2}").Bold();
+                            r.RelativeItem().AlignRight().Text($"{currencyCode} {quotation.AdvancePaymentAmount:N2}").Bold();
                         });
                         sc.Item().Row(r =>
                         {
                             r.RelativeItem().Text("Remaining Balance:");
-                            r.RelativeItem().AlignRight().Text($"INR {quotation.RemainingPaymentAmount:N2}");
+                            r.RelativeItem().AlignRight().Text($"{currencyCode} {quotation.RemainingPaymentAmount:N2}");
                         });
                     });
 
