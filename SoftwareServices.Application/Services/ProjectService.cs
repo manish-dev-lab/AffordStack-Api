@@ -82,10 +82,38 @@ public class ProjectService : IProjectService
         project.InternalNotes = request.InternalNotes?.Trim();
         project.UpdatedAt = DateTime.UtcNow;
 
-        if (request.Status == ProjectStatus.Completed && project.ActualCompletionDate == null)
+        if (request.Status == ProjectStatus.Completed)
         {
-            project.ActualCompletionDate = DateTime.UtcNow;
+            project.ActualCompletionDate ??= DateTime.UtcNow;
             project.ProgressPercentage = 100;
+
+            if (project.QuotationId.HasValue)
+            {
+                var quote = await _context.Quotations
+                    .Include(q => q.Enquiry)
+                    .FirstOrDefaultAsync(q => q.Id == project.QuotationId.Value);
+
+                if (quote?.Enquiry != null)
+                {
+                    quote.Enquiry.Status = EnquiryStatus.Closed;
+                    quote.Enquiry.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+        else if (request.Status == ProjectStatus.InProgress)
+        {
+            if (project.QuotationId.HasValue)
+            {
+                var quote = await _context.Quotations
+                    .Include(q => q.Enquiry)
+                    .FirstOrDefaultAsync(q => q.Id == project.QuotationId.Value);
+
+                if (quote?.Enquiry != null && quote.Enquiry.Status != EnquiryStatus.Closed)
+                {
+                    quote.Enquiry.Status = EnquiryStatus.Converted;
+                    quote.Enquiry.UpdatedAt = DateTime.UtcNow;
+                }
+            }
         }
 
         await _context.SaveChangesAsync();

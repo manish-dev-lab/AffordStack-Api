@@ -56,6 +56,7 @@ public class UserEnquirySummaryDto
     public string RequiredTechnology { get; set; } = string.Empty;
     public string EstimatedBudget { get; set; } = string.Empty;
     public EnquiryStatus Status { get; set; }
+    public string EffectiveStatus { get; set; } = string.Empty;
     public string StatusDisplay { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 
