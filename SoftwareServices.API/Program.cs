@@ -163,15 +163,25 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var db = services.GetRequiredService<ApplicationDbContext>();
-        // Check if database exists and apply migration if configured, else seed
         if (db.Database.CanConnect())
         {
-            logger.LogInformation("Connected to PostgreSQL. Running database seeder...");
+            try
+            {
+                logger.LogInformation("Applying pending database migrations...");
+                await db.Database.MigrateAsync();
+                logger.LogInformation("Database migrations applied successfully.");
+            }
+            catch (Exception migEx)
+            {
+                logger.LogWarning("Notice during automatic EF migrations: {Message}. Continuing to seeder and schema verification...", migEx.Message);
+            }
+
+            logger.LogInformation("Running database seeder and schema verification...");
             await DatabaseSeeder.SeedAsync(db, logger);
         }
         else
         {
-            logger.LogWarning("PostgreSQL database is currently unreachable. You can initialize the database using the SQL scripts in the Database/ folder or run EF migrations once your PostgreSQL server is running.");
+            logger.LogWarning("PostgreSQL database is currently unreachable. Please ensure PostgreSQL is running.");
         }
     }
     catch (Exception ex)

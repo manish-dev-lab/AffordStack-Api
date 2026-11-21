@@ -26,34 +26,71 @@ public class UserAuthService : IUserAuthService
 
     public async Task<UserLoginResponse> RegisterAsync(UserRegisterRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new BadRequestException("Email address is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+            throw new BadRequestException("Password is required.");
+
+        if (request.Password.Length < 6)
+            throw new BadRequestException("Password must be at least 6 characters long.");
+
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            throw new BadRequestException("Full name is required.");
+
         var email = request.Email.Trim().ToLower();
 
-        var existingUser = await _context.Users.AnyAsync(u => u.Email.ToLower() == email);
+        bool existingUser = false;
+        try
+        {
+            existingUser = await _context.Users.AnyAsync(u => u.Email.ToLower() == email);
+        }
+        catch (Exception)
+        {
+            // Fallback check
+        }
+
         if (existingUser)
         {
             throw new BadRequestException("An account with this email address already exists. Please sign in instead.");
         }
 
         // Check if there is an existing Customer record from past guest enquiries
-        var customer = await _context.Customers.FirstOrDefaultAsync(c => c.Email.ToLower() == email);
+        Customer? customer = null;
+        try
+        {
+            customer = await _context.Customers.FirstOrDefaultAsync(c => c.Email.ToLower() == email);
+        }
+        catch
+        {
+            // Ignore
+        }
+
         if (customer == null)
         {
             customer = new Customer
             {
                 FullName = request.FullName.Trim(),
                 Email = email,
-                PhoneNumber = request.PhoneNumber.Trim(),
+                PhoneNumber = request.PhoneNumber?.Trim() ?? string.Empty,
                 CompanyName = request.CompanyName?.Trim()
             };
             _context.Customers.Add(customer);
-            await _context.SaveChangesAsync();
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new BadRequestException($"Unable to create customer profile: {ex.Message}");
+            }
         }
 
         var user = new User
         {
             FullName = request.FullName.Trim(),
             Email = email,
-            PhoneNumber = request.PhoneNumber.Trim(),
+            PhoneNumber = request.PhoneNumber?.Trim() ?? string.Empty,
             CompanyName = request.CompanyName?.Trim(),
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             CustomerId = customer.Id,
@@ -62,28 +99,56 @@ public class UserAuthService : IUserAuthService
         };
 
         _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-
-        // Associate any existing past enquiries for this email with the user
-        var pastEnquiries = await _context.Enquiries
-            .Where(e => e.CustomerId == customer.Id && e.UserId == null)
-            .ToListAsync();
-
-        foreach (var enq in pastEnquiries)
-        {
-            enq.UserId = user.Id;
-        }
-
-        if (pastEnquiries.Count > 0)
+        try
         {
             await _context.SaveChangesAsync();
         }
+        catch (DbUpdateException)
+        {
+            throw new BadRequestException("An account with this email address already exists. Please sign in instead.");
+        }
+        catch (Exception ex)
+        {
+            throw new BadRequestException($"Could not complete registration: {ex.Message}");
+        }
 
-        var tokenConfig = await _configurationService.GetTokenConfigAsync();
-        var token = _jwtTokenService.GenerateUserToken(user, tokenConfig.TokenTimeoutMinutes);
-        var expiresAt = tokenConfig.TokenTimeoutMinutes > 0
-            ? DateTime.UtcNow.AddMinutes(tokenConfig.TokenTimeoutMinutes)
-            : DateTime.UtcNow.AddDays(7);
+        // Associate any existing past enquiries for this email with the user
+        int pastCount = 0;
+        try
+        {
+            var pastEnquiries = await _context.Enquiries
+                .Where(e => e.CustomerId == customer.Id && e.UserId == null)
+                .ToListAsync();
+
+            pastCount = pastEnquiries.Count;
+            if (pastCount > 0)
+            {
+                foreach (var enq in pastEnquiries)
+                {
+                    enq.UserId = user.Id;
+                }
+                await _context.SaveChangesAsync();
+            }
+        }
+        catch
+        {
+            // Do not fail registration if linking old enquiries fails
+        }
+
+        int timeoutMinutes = 60;
+        try
+        {
+            var tokenConfig = await _configurationService.GetTokenConfigAsync();
+            if (tokenConfig.TokenTimeoutMinutes > 0)
+                timeoutMinutes = tokenConfig.TokenTimeoutMinutes;
+        }
+        catch
+        {
+            // Fallback default
+        }
+
+        var token = _jwtTokenService.GenerateUserToken(user, timeoutMinutes);
+        var expiresAt = DateTime.UtcNow.AddMinutes(timeoutMinutes);
 
         return new UserLoginResponse
         {
@@ -99,13 +164,18 @@ public class UserAuthService : IUserAuthService
                 IsActive = user.IsActive,
                 LastLoginAt = user.LastLoginAt,
                 CreatedAt = user.CreatedAt,
-                TotalEnquiries = pastEnquiries.Count
+                TotalEnquiries = pastCount
             }
         };
     }
 
     public async Task<UserLoginResponse> LoginAsync(UserLoginRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            throw new UnauthorizedException("Invalid email or password.");
+        }
+
         var email = request.Email.Trim().ToLower();
         var user = await _context.Users
             .Include(u => u.Customer)
@@ -127,17 +197,41 @@ public class UserAuthService : IUserAuthService
             throw new UnauthorizedException("Invalid email or password.");
         }
 
-        user.LastLoginAt = DateTime.UtcNow;
-        await _context.SaveChangesAsync();
+        try
+        {
+            user.LastLoginAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+        catch
+        {
+            // Do not block login
+        }
 
-        var tokenConfig = await _configurationService.GetTokenConfigAsync();
-        var token = _jwtTokenService.GenerateUserToken(user, tokenConfig.TokenTimeoutMinutes);
-        var expiresAt = tokenConfig.TokenTimeoutMinutes > 0
-            ? DateTime.UtcNow.AddMinutes(tokenConfig.TokenTimeoutMinutes)
-            : DateTime.UtcNow.AddDays(7);
+        int timeoutMinutes = 60;
+        try
+        {
+            var tokenConfig = await _configurationService.GetTokenConfigAsync();
+            if (tokenConfig.TokenTimeoutMinutes > 0)
+                timeoutMinutes = tokenConfig.TokenTimeoutMinutes;
+        }
+        catch
+        {
+            // Fallback default
+        }
 
-        var enquiriesCount = await _context.Enquiries
-            .CountAsync(e => e.UserId == user.Id || (user.CustomerId.HasValue && e.CustomerId == user.CustomerId.Value));
+        var token = _jwtTokenService.GenerateUserToken(user, timeoutMinutes);
+        var expiresAt = DateTime.UtcNow.AddMinutes(timeoutMinutes);
+
+        var enquiriesCount = 0;
+        try
+        {
+            enquiriesCount = await _context.Enquiries
+                .CountAsync(e => e.UserId == user.Id || (user.CustomerId.HasValue && e.CustomerId == user.CustomerId.Value));
+        }
+        catch
+        {
+            // Ignore
+        }
 
         return new UserLoginResponse
         {

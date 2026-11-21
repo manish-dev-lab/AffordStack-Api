@@ -42,21 +42,21 @@ public class ConfigurationService : IConfigurationService
             return cached;
         }
 
-        var config = await _context.AppConfigurations
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ConfigKey == key);
-
         TokenConfigDto result = new();
-        if (config != null && !string.IsNullOrWhiteSpace(config.ConfigValue))
+        try
         {
-            try
+            var config = await _context.AppConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.ConfigKey == key);
+
+            if (config != null && !string.IsNullOrWhiteSpace(config.ConfigValue))
             {
                 result = JsonSerializer.Deserialize<TokenConfigDto>(config.ConfigValue, JsonOptions) ?? new();
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error deserializing TokenConfig from database. Using defaults.");
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Notice: Could not load TokenConfig from database ({Message}). Using defaults.", ex.Message);
         }
 
         _cache.Set(cacheKey, result, DefaultCacheDuration);
@@ -73,21 +73,21 @@ public class ConfigurationService : IConfigurationService
             return cached;
         }
 
-        var config = await _context.AppConfigurations
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ConfigKey == key);
-
         EmailConfigDto result = new();
-        if (config != null && !string.IsNullOrWhiteSpace(config.ConfigValue))
+        try
         {
-            try
+            var config = await _context.AppConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.ConfigKey == key);
+
+            if (config != null && !string.IsNullOrWhiteSpace(config.ConfigValue))
             {
                 result = JsonSerializer.Deserialize<EmailConfigDto>(config.ConfigValue, JsonOptions) ?? new();
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error deserializing EmailConfig from database. Using defaults.");
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Notice: Could not load EmailConfig from database ({Message}). Using defaults.", ex.Message);
         }
 
         _cache.Set(cacheKey, result, DefaultCacheDuration);
@@ -104,21 +104,21 @@ public class ConfigurationService : IConfigurationService
             return cached;
         }
 
-        var config = await _context.AppConfigurations
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ConfigKey == key);
-
         WebsiteConfigDto result = new();
-        if (config != null && !string.IsNullOrWhiteSpace(config.ConfigValue))
+        try
         {
-            try
+            var config = await _context.AppConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.ConfigKey == key);
+
+            if (config != null && !string.IsNullOrWhiteSpace(config.ConfigValue))
             {
                 result = JsonSerializer.Deserialize<WebsiteConfigDto>(config.ConfigValue, JsonOptions) ?? new();
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error deserializing WebsiteConfig from database. Using defaults.");
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Notice: Could not load WebsiteConfig from database ({Message}). Using defaults.", ex.Message);
         }
 
         _cache.Set(cacheKey, result, DefaultCacheDuration);
@@ -127,19 +127,27 @@ public class ConfigurationService : IConfigurationService
 
     public async Task<List<AppConfigItemDto>> GetAllConfigurationsAsync()
     {
-        var configs = await _context.AppConfigurations
-            .AsNoTracking()
-            .OrderBy(c => c.ConfigKey)
-            .Select(c => new AppConfigItemDto
-            {
-                Key = c.ConfigKey,
-                Value = c.ConfigValue,
-                Description = c.Description,
-                UpdatedAt = c.UpdatedAt ?? c.CreatedAt
-            })
-            .ToListAsync();
+        try
+        {
+            var configs = await _context.AppConfigurations
+                .AsNoTracking()
+                .OrderBy(c => c.ConfigKey)
+                .Select(c => new AppConfigItemDto
+                {
+                    Key = c.ConfigKey,
+                    Value = c.ConfigValue,
+                    Description = c.Description,
+                    UpdatedAt = c.UpdatedAt ?? c.CreatedAt
+                })
+                .ToListAsync();
 
-        return configs;
+            return configs;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Notice: Could not query all AppConfigurations ({Message}). Returning empty list.", ex.Message);
+            return new List<AppConfigItemDto>();
+        }
     }
 
     public async Task<string?> GetRawConfigAsync(string key)
@@ -150,14 +158,22 @@ public class ConfigurationService : IConfigurationService
             return cached;
         }
 
-        var config = await _context.AppConfigurations
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ConfigKey == key);
+        try
+        {
+            var config = await _context.AppConfigurations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.ConfigKey == key);
 
-        if (config == null) return null;
+            if (config == null) return null;
 
-        _cache.Set(cacheKey, config.ConfigValue, DefaultCacheDuration);
-        return config.ConfigValue;
+            _cache.Set(cacheKey, config.ConfigValue, DefaultCacheDuration);
+            return config.ConfigValue;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Notice: Could not query raw config key '{Key}' ({Message}).", key, ex.Message);
+            return null;
+        }
     }
 
     public async Task<bool> UpdateConfigurationAsync(string key, string jsonValue, string? description = null)
