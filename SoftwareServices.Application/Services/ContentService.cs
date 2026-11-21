@@ -403,8 +403,25 @@ public class ContentService : IContentService
     #region Settings
     public async Task<Dictionary<string, string>> GetWebsiteSettingsAsync()
     {
-        var settings = await _context.WebsiteSettings.AsNoTracking().ToListAsync();
-        return settings.ToDictionary(s => s.SettingKey, s => s.SettingValue);
+        var settingsList = await _context.WebsiteSettings.AsNoTracking().ToListAsync();
+        var dict = settingsList.ToDictionary(s => s.SettingKey, s => s.SettingValue);
+
+        // Include maintenance mode from AppConfigurations if present
+        var websiteConfig = await _context.AppConfigurations.AsNoTracking().FirstOrDefaultAsync(c => c.ConfigKey == "WebsiteConfig");
+        if (websiteConfig != null && !string.IsNullOrWhiteSpace(websiteConfig.ConfigValue))
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(websiteConfig.ConfigValue);
+                if (doc.RootElement.TryGetProperty("maintenanceMode", out var prop) || doc.RootElement.TryGetProperty("MaintenanceMode", out prop))
+                {
+                    dict["System:MaintenanceMode"] = prop.GetBoolean().ToString().ToLowerInvariant();
+                }
+            }
+            catch { }
+        }
+
+        return dict;
     }
 
     public async Task<bool> UpdateSettingAsync(UpdateSettingRequest request)
