@@ -9,6 +9,9 @@ public interface IUserAuthService
     Task<UserLoginResponse> RegisterAsync(UserRegisterRequest request);
     Task<UserLoginResponse> LoginAsync(UserLoginRequest request);
     Task<UserProfileDto> GetProfileAsync(int userId);
+    Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateUserProfileRequest request);
+    Task<bool> RequestEmailChangeOtpAsync(int userId, RequestEmailChangeOtpRequest request);
+    Task<UserLoginResponse> ConfirmEmailChangeAsync(int userId, ConfirmEmailChangeRequest request);
     Task<List<UserEnquirySummaryDto>> GetUserEnquiriesAsync(int userId);
     Task<bool> ChangePasswordAsync(int userId, UserChangePasswordRequest request);
     Task<bool> ForgotPasswordAsync(UserForgotPasswordRequest request);
