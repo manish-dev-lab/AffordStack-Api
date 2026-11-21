@@ -413,16 +413,73 @@ public class UserAuthService : IUserAuthService
                 .FirstOrDefault();
             var project = activeQuote?.Project;
 
-            return new UserEnquirySummaryDto
+            string effectiveStatus;
+            string statusDisplay;
+
+            if (project != null)
             {
-                Id = e.Id,
-                ReferenceNumber = e.ReferenceNumber,
-                ProjectTitle = e.ProjectTitle,
-                ProjectDescription = e.ProjectDescription,
-                RequiredTechnology = e.RequiredTechnology,
-                EstimatedBudget = e.EstimatedBudget,
-                Status = e.Status,
-                StatusDisplay = e.Status switch
+                if (project.Status == ProjectStatus.Completed || e.Status == EnquiryStatus.Closed)
+                {
+                    effectiveStatus = "Completed";
+                    statusDisplay = "Delivered / Completed";
+                }
+                else if (project.Status == ProjectStatus.InProgress)
+                {
+                    effectiveStatus = "InProgress";
+                    statusDisplay = "In Progress";
+                }
+                else if (project.Status == ProjectStatus.OnHold)
+                {
+                    effectiveStatus = "OnHold";
+                    statusDisplay = "On Hold";
+                }
+                else if (project.Status == ProjectStatus.Cancelled)
+                {
+                    effectiveStatus = "Cancelled";
+                    statusDisplay = "Cancelled";
+                }
+                else
+                {
+                    effectiveStatus = "NotStarted";
+                    statusDisplay = "Project Provisioned";
+                }
+            }
+            else if (activeQuote != null)
+            {
+                if (activeQuote.Status == QuotationStatus.Accepted)
+                {
+                    effectiveStatus = "Accepted";
+                    statusDisplay = "Quotation Accepted";
+                }
+                else if (activeQuote.Status == QuotationStatus.Rejected)
+                {
+                    effectiveStatus = "Rejected";
+                    statusDisplay = "Quotation Declined";
+                }
+                else if (activeQuote.Status == QuotationStatus.Sent || activeQuote.Status == QuotationStatus.Viewed)
+                {
+                    effectiveStatus = "Quoted";
+                    statusDisplay = "Quotation Proposal Ready";
+                }
+                else
+                {
+                    effectiveStatus = e.Status.ToString();
+                    statusDisplay = e.Status switch
+                    {
+                        EnquiryStatus.New => "Submitted",
+                        EnquiryStatus.Reviewed => "Under Technical Review",
+                        EnquiryStatus.Quoted => "Quotation Proposal Ready",
+                        EnquiryStatus.FollowUp => "Discussion & Scope Refinement",
+                        EnquiryStatus.Converted => "Project Active / In Progress",
+                        EnquiryStatus.Closed => "Completed & Handed Over",
+                        _ => e.Status.ToString()
+                    };
+                }
+            }
+            else
+            {
+                effectiveStatus = e.Status.ToString();
+                statusDisplay = e.Status switch
                 {
                     EnquiryStatus.New => "Submitted",
                     EnquiryStatus.Reviewed => "Under Technical Review",
@@ -431,7 +488,24 @@ public class UserAuthService : IUserAuthService
                     EnquiryStatus.Converted => "Project Active / In Progress",
                     EnquiryStatus.Closed => "Completed & Handed Over",
                     _ => e.Status.ToString()
-                },
+                };
+            }
+
+            var finalEnquiryStatus = (project != null && project.Status == ProjectStatus.Completed) 
+                ? EnquiryStatus.Closed 
+                : ((project != null && project.Status == ProjectStatus.InProgress && e.Status != EnquiryStatus.Closed) ? EnquiryStatus.Converted : e.Status);
+
+            return new UserEnquirySummaryDto
+            {
+                Id = e.Id,
+                ReferenceNumber = e.ReferenceNumber,
+                ProjectTitle = e.ProjectTitle,
+                ProjectDescription = e.ProjectDescription,
+                RequiredTechnology = e.RequiredTechnology,
+                EstimatedBudget = e.EstimatedBudget,
+                Status = finalEnquiryStatus,
+                EffectiveStatus = effectiveStatus,
+                StatusDisplay = statusDisplay,
                 CreatedAt = e.CreatedAt,
                 QuotationNumber = activeQuote?.QuotationNumber,
                 QuotationSecureToken = activeQuote?.SecureToken,

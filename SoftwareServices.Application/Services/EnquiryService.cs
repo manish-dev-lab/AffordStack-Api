@@ -277,6 +277,35 @@ public class EnquiryService : IEnquiryService
         enquiry.Status = request.Status;
         enquiry.UpdatedAt = DateTime.UtcNow;
 
+        // Synchronize linked projects when admin updates enquiry status
+        if (request.Status == EnquiryStatus.Closed)
+        {
+            var linkedProjects = await _context.Projects
+                .Where(p => _context.Quotations.Any(q => q.EnquiryId == enquiry.Id && q.Id == p.QuotationId))
+                .ToListAsync();
+            foreach (var p in linkedProjects)
+            {
+                p.Status = ProjectStatus.Completed;
+                p.ProgressPercentage = 100;
+                p.ActualCompletionDate ??= DateTime.UtcNow;
+                p.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+        else if (request.Status == EnquiryStatus.Converted)
+        {
+            var linkedProjects = await _context.Projects
+                .Where(p => _context.Quotations.Any(q => q.EnquiryId == enquiry.Id && q.Id == p.QuotationId))
+                .ToListAsync();
+            foreach (var p in linkedProjects)
+            {
+                if (p.Status == ProjectStatus.NotStarted)
+                {
+                    p.Status = ProjectStatus.InProgress;
+                    p.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+        }
+
         if (!string.IsNullOrWhiteSpace(request.Note))
         {
             int? validAdminId = null;
@@ -447,6 +476,40 @@ public class EnquiryService : IEnquiryService
                 .Include(p => p.Milestones)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.QuotationId == activeQuote.Id);
+        }
+
+        if (project != null)
+        {
+            if (project.Status == ProjectStatus.Completed || enquiry.Status == EnquiryStatus.Closed)
+            {
+                step = 5;
+                display = "Delivered (Handed Over)";
+                desc = "Codebase, demo & documentation have been handed over successfully!";
+            }
+            else if (project.Status == ProjectStatus.InProgress)
+            {
+                step = 4;
+                display = "Project Active & In Progress";
+                desc = "Your project is actively being developed according to milestones.";
+            }
+            else if (project.Status == ProjectStatus.OnHold)
+            {
+                step = 4;
+                display = "Project On Hold";
+                desc = "Project development is temporarily paused.";
+            }
+            else if (project.Status == ProjectStatus.Cancelled)
+            {
+                step = 4;
+                display = "Project Cancelled";
+                desc = "Project development has been cancelled.";
+            }
+        }
+        else if (enquiry.Status == EnquiryStatus.Closed)
+        {
+            step = 5;
+            display = "Delivered (Handed Over)";
+            desc = "Codebase, demo & documentation have been handed over successfully!";
         }
 
         return new EnquiryTrackingDto
