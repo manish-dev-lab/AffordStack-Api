@@ -372,6 +372,170 @@ public class UserAuthService : IUserAuthService
         };
     }
 
+    public async Task<UserProfileDto> UpdateProfileAsync(int userId, UpdateUserProfileRequest request)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            throw new NotFoundException("User account not found.");
+
+        if (string.IsNullOrWhiteSpace(request.FullName))
+            throw new BadRequestException("Full name is required.");
+
+        user.FullName = request.FullName.Trim();
+        user.PhoneNumber = request.PhoneNumber?.Trim() ?? string.Empty;
+        user.CompanyName = request.CompanyName?.Trim();
+        user.UpdatedAt = DateTime.UtcNow;
+
+        // Update customer profile
+        if (user.CustomerId.HasValue)
+        {
+            var customer = await _context.Customers.FindAsync(user.CustomerId.Value);
+            if (customer != null)
+            {
+                customer.FullName = user.FullName;
+                customer.PhoneNumber = user.PhoneNumber;
+                customer.CompanyName = user.CompanyName;
+                customer.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        var oldEmail = user.Email.Trim().ToLower();
+        var matchingCustomers = await _context.Customers.Where(c => c.Email.ToLower() == oldEmail).ToListAsync();
+        foreach (var c in matchingCustomers)
+        {
+            c.FullName = user.FullName;
+            c.PhoneNumber = user.PhoneNumber;
+            c.CompanyName = user.CompanyName;
+            c.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+        return await GetProfileAsync(userId);
+    }
+
+    public async Task<bool> RequestEmailChangeOtpAsync(int userId, RequestEmailChangeOtpRequest request)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            throw new NotFoundException("User account not found.");
+
+        if (string.IsNullOrWhiteSpace(request.NewEmail) || !request.NewEmail.Contains("@"))
+            throw new BadRequestException("Please enter a valid email address.");
+
+        var cleanNewEmail = request.NewEmail.Trim().ToLowerInvariant();
+
+        if (user.Email.Trim().ToLowerInvariant() == cleanNewEmail)
+            throw new BadRequestException("The new email address cannot be identical to your current email address.");
+
+        var emailInUse = await _context.Users.AnyAsync(u => u.Email.ToLower() == cleanNewEmail && u.Id != userId);
+        if (emailInUse)
+            throw new BadRequestException("An account with this email address already exists. Please choose a different email.");
+
+        var code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+        var cacheKey = $"email_change_otp:{userId}:{cleanNewEmail}";
+        _cache.Set(cacheKey, code, TimeSpan.FromMinutes(10));
+
+        var subject = $"SoftwareServices - Email Verification Code: {code}";
+        var body = $@"
+<!DOCTYPE html>
+<html>
+<body style=""font-family: Arial, sans-serif; background-color: #f8fafc; padding: 20px; color: #1e293b;"">
+  <div style=""max-width: 500px; margin: auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);"">
+    <div style=""text-align: center; margin-bottom: 24px;"">
+      <h2 style=""color: #2563eb; margin: 0; font-size: 24px;"">SoftwareServices</h2>
+      <p style=""font-size: 13px; color: #64748b; margin-top: 4px;"">Email Address Change Request</p>
+    </div>
+    <p style=""font-size: 14px;"">Hello {user.FullName},</p>
+    <p style=""font-size: 14px;"">We received a request to update your account email address to <strong>{cleanNewEmail}</strong>. Please enter the following 6-digit verification code to confirm this change:</p>
+    <div style=""text-align: center; margin: 28px 0;"">
+      <span style=""display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #2563eb; background: #eff6ff; padding: 12px 28px; border-radius: 12px; border: 1px dashed #bfdbfe;"">
+        {code}
+      </span>
+    </div>
+    <p style=""font-size: 12px; color: #64748b; text-align: center;"">This code will expire in <strong>10 minutes</strong>. Once verified, all your project updates, invoices, and enquiries will be linked to this new email.</p>
+    <hr style=""border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;"" />
+    <p style=""font-size: 11px; color: #94a3b8; text-align: center;"">&copy; {DateTime.UtcNow.Year} SoftwareServices Platform. All rights reserved.</p>
+  </div>
+</body>
+</html>";
+
+        try
+        {
+            await _emailService.SendEmailDirectAsync(cleanNewEmail, user.FullName, subject, body);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Email delivery failed for email change OTP: {Message}", ex.Message);
+        }
+
+        return true;
+    }
+
+    public async Task<UserLoginResponse> ConfirmEmailChangeAsync(int userId, ConfirmEmailChangeRequest request)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        if (user == null)
+            throw new NotFoundException("User account not found.");
+
+        if (string.IsNullOrWhiteSpace(request.NewEmail) || string.IsNullOrWhiteSpace(request.Otp))
+            throw new BadRequestException("New email and verification code are required.");
+
+        var cleanNewEmail = request.NewEmail.Trim().ToLowerInvariant();
+        var cacheKey = $"email_change_otp:{userId}:{cleanNewEmail}";
+
+        if (!_cache.TryGetValue(cacheKey, out string? cachedOtp) || cachedOtp != request.Otp.Trim())
+            throw new BadRequestException("Invalid or expired verification code. Please request a new code.");
+
+        var emailInUse = await _context.Users.AnyAsync(u => u.Email.ToLower() == cleanNewEmail && u.Id != userId);
+        if (emailInUse)
+            throw new BadRequestException("An account with this email address already exists. Please choose a different email.");
+
+        var oldEmail = user.Email.Trim().ToLowerInvariant();
+        user.Email = cleanNewEmail;
+        user.IsEmailVerified = true;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        if (user.CustomerId.HasValue)
+        {
+            var customer = await _context.Customers.FindAsync(user.CustomerId.Value);
+            if (customer != null)
+            {
+                customer.Email = cleanNewEmail;
+                customer.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
+        var matchingCustomers = await _context.Customers.Where(c => c.Email.ToLower() == oldEmail).ToListAsync();
+        foreach (var c in matchingCustomers)
+        {
+            c.Email = cleanNewEmail;
+            c.UpdatedAt = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+        _cache.Remove(cacheKey);
+
+        int timeoutMinutes = 60;
+        try
+        {
+            var tokenConfig = await _configurationService.GetTokenConfigAsync();
+            if (tokenConfig.TokenTimeoutMinutes > 0)
+                timeoutMinutes = tokenConfig.TokenTimeoutMinutes;
+        }
+        catch { }
+
+        var token = _jwtTokenService.GenerateUserToken(user, timeoutMinutes);
+        var expiresAt = DateTime.UtcNow.AddMinutes(timeoutMinutes);
+        var updatedProfile = await GetProfileAsync(userId);
+
+        return new UserLoginResponse
+        {
+            Token = token,
+            ExpiresAt = expiresAt,
+            User = updatedProfile
+        };
+    }
+
     public async Task<List<UserEnquirySummaryDto>> GetUserEnquiriesAsync(int userId)
     {
         var user = await _context.Users.FindAsync(userId);

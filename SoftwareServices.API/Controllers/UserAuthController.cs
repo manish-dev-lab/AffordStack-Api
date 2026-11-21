@@ -64,6 +64,51 @@ public class UserAuthController : ControllerBase
     }
 
     /// <summary>
+    /// Update logged-in user profile details (Name, Phone, Company)
+    /// </summary>
+    [Authorize]
+    [HttpPut("profile")]
+    public async Task<ActionResult<ApiResponse<UserProfileDto>>> UpdateProfile([FromBody] UpdateUserProfileRequest request)
+    {
+        var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(idStr, out var userId))
+            return Unauthorized(ApiResponse<UserProfileDto>.Fail("Invalid session."));
+
+        var profile = await _userAuthService.UpdateProfileAsync(userId, request);
+        return Ok(ApiResponse<UserProfileDto>.Ok(profile, "Profile updated successfully."));
+    }
+
+    /// <summary>
+    /// Request OTP verification code to change account email address
+    /// </summary>
+    [Authorize]
+    [HttpPost("profile/request-email-change")]
+    public async Task<ActionResult<ApiResponse<bool>>> RequestEmailChange([FromBody] RequestEmailChangeOtpRequest request)
+    {
+        var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(idStr, out var userId))
+            return Unauthorized(ApiResponse<bool>.Fail("Invalid session."));
+
+        var result = await _userAuthService.RequestEmailChangeOtpAsync(userId, request);
+        return Ok(ApiResponse<bool>.Ok(result, "A 6-digit verification code has been dispatched to your new email address."));
+    }
+
+    /// <summary>
+    /// Verify OTP and update account email address across database
+    /// </summary>
+    [Authorize]
+    [HttpPost("profile/confirm-email-change")]
+    public async Task<ActionResult<ApiResponse<UserLoginResponse>>> ConfirmEmailChange([FromBody] ConfirmEmailChangeRequest request)
+    {
+        var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!int.TryParse(idStr, out var userId))
+            return Unauthorized(ApiResponse<UserLoginResponse>.Fail("Invalid session."));
+
+        var result = await _userAuthService.ConfirmEmailChangeAsync(userId, request);
+        return Ok(ApiResponse<UserLoginResponse>.Ok(result, "Your email address has been successfully updated and verified."));
+    }
+
+    /// <summary>
     /// Get past and current enquiries for the logged-in user
     /// </summary>
     [Authorize]

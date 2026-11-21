@@ -47,6 +47,24 @@ public class UserProfileDto
     public int ActiveProjects { get; set; }
 }
 
+public class UpdateUserProfileRequest
+{
+    public string FullName { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+    public string? CompanyName { get; set; }
+}
+
+public class RequestEmailChangeOtpRequest
+{
+    public string NewEmail { get; set; } = string.Empty;
+}
+
+public class ConfirmEmailChangeRequest
+{
+    public string NewEmail { get; set; } = string.Empty;
+    public string Otp { get; set; } = string.Empty;
+}
+
 public class UserEnquirySummaryDto
 {
     public int Id { get; set; }
