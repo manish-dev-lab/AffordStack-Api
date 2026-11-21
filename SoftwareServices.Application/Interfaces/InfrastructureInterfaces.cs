@@ -15,7 +15,8 @@ public interface IEmailService
 
 public interface IJwtTokenService
 {
-    string GenerateToken(AdminUser user);
+    string GenerateToken(AdminUser user, int timeoutMinutes = 0);
+    string GenerateUserToken(User user, int timeoutMinutes = 0);
 }
 
 public interface IPdfQuotationGenerator

@@ -7,6 +7,7 @@ namespace SoftwareServices.Application.Interfaces;
 public interface IApplicationDbContext
 {
     DbSet<AdminUser> AdminUsers { get; }
+    DbSet<User> Users { get; }
     DbSet<Customer> Customers { get; }
     DbSet<ServiceCategory> ServiceCategories { get; }
     DbSet<ServiceItem> Services { get; }
@@ -24,6 +25,7 @@ public interface IApplicationDbContext
     DbSet<BlogPost> BlogPosts { get; }
     DbSet<Testimonial> Testimonials { get; }
     DbSet<WebsiteSetting> WebsiteSettings { get; }
+    DbSet<AppConfiguration> AppConfigurations { get; }
     DbSet<EmailOutbox> EmailOutbox { get; }
     DbSet<EmailLog> EmailLogs { get; }
 

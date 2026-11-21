@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using SoftwareServices.Application.Common;
 using SoftwareServices.Application.Common.Exceptions;
 using SoftwareServices.Application.DTOs.Enquiry;
+using SoftwareServices.Application.DTOs.Quotation;
 using SoftwareServices.Application.Interfaces;
 using SoftwareServices.Domain.Entities;
 using SoftwareServices.Domain.Enums;
@@ -88,6 +89,13 @@ public class EnquiryService : IEnquiryService
         if (!isNewCustomer)
         {
             enquiry.CustomerId = customer.Id;
+        }
+
+        // Link registered user if account exists for this email
+        var registeredUser = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == cleanEmail);
+        if (registeredUser != null)
+        {
+            enquiry.UserId = registeredUser.Id;
         }
 
         _context.Enquiries.Add(enquiry);
@@ -271,10 +279,17 @@ public class EnquiryService : IEnquiryService
 
         if (!string.IsNullOrWhiteSpace(request.Note))
         {
+            int? validAdminId = null;
+            if (adminUserId.HasValue && adminUserId.Value > 0)
+            {
+                var adminExists = await _context.AdminUsers.AnyAsync(a => a.Id == adminUserId.Value);
+                if (adminExists) validAdminId = adminUserId.Value;
+            }
+
             _context.EnquiryNotes.Add(new EnquiryNote
             {
                 EnquiryId = enquiry.Id,
-                AdminUserId = adminUserId,
+                AdminUserId = validAdminId,
                 NoteContent = $"Status changed to {request.Status}: {request.Note}"
             });
         }
@@ -325,5 +340,126 @@ public class EnquiryService : IEnquiryService
         enquiry.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<EnquiryTrackingDto> TrackEnquiryAsync(TrackEnquiryRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.ReferenceNumber) || string.IsNullOrWhiteSpace(request.Email))
+            throw new BadRequestException("Please provide both your Reference Number and Email address.");
+
+        var cleanRef = request.ReferenceNumber.Trim().ToUpperInvariant();
+        var cleanEmail = request.Email.Trim().ToLowerInvariant();
+
+        var enquiry = await _context.Enquiries
+            .Include(e => e.Customer)
+            .Include(e => e.ServiceCategory)
+            .Include(e => e.Quotations)
+                .ThenInclude(q => q.Items)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e =>
+                e.ReferenceNumber.ToUpper() == cleanRef &&
+                e.Customer != null && e.Customer.Email.ToLower() == cleanEmail);
+
+        if (enquiry == null)
+            throw new NotFoundException($"No enquiry was found matching Reference '{cleanRef}' and Email '{cleanEmail}'. Please verify your credentials.");
+
+        // Determine step index and status descriptions
+        var (display, desc, step) = enquiry.Status switch
+        {
+            EnquiryStatus.New => ("Submitted", "Your enquiry has been successfully logged into our engineering queue.", 1),
+            EnquiryStatus.Reviewed => ("Under Technical Review", "Our architects are evaluating your project requirements and estimating deliverables.", 2),
+            EnquiryStatus.Quoted => ("Quotation Ready", "Your official quotation proposal is ready. You can review pricing, milestones, deliverables, and choose to accept or decline below.", 3),
+            EnquiryStatus.FollowUp => ("In Follow-Up / Discussion", "We are discussing project specifics and clarifications with you.", 2),
+            EnquiryStatus.Converted => ("Project Provisioned", "Quotation accepted! Your project repository, milestones, and development sprint have been initiated.", 4),
+            EnquiryStatus.Closed => ("Completed / Closed", "This enquiry has completed its lifecycle.", 5),
+            EnquiryStatus.Spam => ("Archived", "This submission has been archived.", 1),
+            _ => ("Processing", "Your request is currently being handled.", 1)
+        };
+
+        // Find active quotation (latest non-draft quotation, or latest if draft)
+        PublicQuotationDto? activeQuoteDto = null;
+        var activeQuote = enquiry.Quotations
+            .Where(q => !q.IsDeleted && q.Status != QuotationStatus.Draft)
+            .OrderByDescending(q => q.CreatedAt)
+            .FirstOrDefault()
+            ?? enquiry.Quotations
+                .Where(q => !q.IsDeleted)
+                .OrderByDescending(q => q.CreatedAt)
+                .FirstOrDefault();
+
+        if (activeQuote != null)
+        {
+            if (activeQuote.Status == QuotationStatus.Accepted)
+            {
+                step = 4;
+                display = "Quotation Accepted & Project Provisioned";
+                desc = "You accepted this quotation proposal! The engineering team is actively developing the project deliverables.";
+            }
+            else if (activeQuote.Status == QuotationStatus.Rejected)
+            {
+                display = "Quotation Declined";
+                desc = "You declined this quotation proposal. You may reach out if you would like revised terms or scope.";
+            }
+            else if (step < 3)
+            {
+                step = 3;
+                display = "Quotation Ready";
+                desc = "Your official quotation proposal is ready for your review and approval!";
+            }
+
+            activeQuoteDto = new PublicQuotationDto
+            {
+                QuotationNumber = activeQuote.QuotationNumber,
+                SecureToken = activeQuote.SecureToken,
+                CustomerName = enquiry.Customer?.FullName ?? "Valued Client",
+                CompanyName = enquiry.Customer?.CompanyName,
+                ServiceDescription = activeQuote.ServiceDescription,
+                Deliverables = activeQuote.Deliverables,
+                DevelopmentCost = activeQuote.DevelopmentCost,
+                AdditionalCost = activeQuote.AdditionalCost,
+                TaxRate = activeQuote.TaxRate,
+                TaxAmount = activeQuote.TaxAmount,
+                TotalAmount = activeQuote.TotalAmount,
+                AdvancePaymentAmount = activeQuote.AdvancePaymentAmount,
+                RemainingPaymentAmount = activeQuote.RemainingPaymentAmount,
+                ExpectedDeliveryDate = activeQuote.ExpectedDeliveryDate,
+                ValidUntil = activeQuote.ValidUntil,
+                TermsAndConditions = activeQuote.TermsAndConditions,
+                Status = activeQuote.Status,
+                RespondedAt = activeQuote.RespondedAt,
+                ResponseRemarks = activeQuote.ResponseRemarks,
+                Items = activeQuote.Items.Select(i => new QuotationItemDto
+                {
+                    Id = i.Id,
+                    Title = i.Title,
+                    Description = i.Description,
+                    Quantity = i.Quantity,
+                    UnitPrice = i.UnitPrice,
+                    TotalPrice = i.TotalPrice
+                }).ToList()
+            };
+        }
+
+        return new EnquiryTrackingDto
+        {
+            Id = enquiry.Id,
+            ReferenceNumber = enquiry.ReferenceNumber,
+            CustomerName = enquiry.Customer?.FullName ?? "",
+            CustomerEmail = enquiry.Customer?.Email ?? "",
+            CustomerPhone = enquiry.Customer?.PhoneNumber ?? "",
+            CompanyName = enquiry.Customer?.CompanyName,
+            ProjectTitle = enquiry.ProjectTitle,
+            ProjectDescription = enquiry.ProjectDescription,
+            ServiceCategoryName = enquiry.ServiceCategory?.Name ?? "Custom Engineering",
+            RequiredTechnology = enquiry.RequiredTechnology,
+            EstimatedBudget = enquiry.EstimatedBudget,
+            Status = enquiry.Status,
+            StatusDisplay = display,
+            StatusDescription = desc,
+            StepIndex = step,
+            CreatedAt = enquiry.CreatedAt,
+            UpdatedAt = enquiry.UpdatedAt,
+            ActiveQuotation = activeQuoteDto
+        };
     }
 }

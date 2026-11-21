@@ -11,6 +11,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     }
 
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<User> Users => Set<User>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<ServiceCategory> ServiceCategories => Set<ServiceCategory>();
     public DbSet<ServiceItem> Services => Set<ServiceItem>();
@@ -28,6 +29,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
     public DbSet<Testimonial> Testimonials => Set<Testimonial>();
     public DbSet<WebsiteSetting> WebsiteSettings => Set<WebsiteSetting>();
+    public DbSet<AppConfiguration> AppConfigurations => Set<AppConfiguration>();
     public DbSet<EmailOutbox> EmailOutbox => Set<EmailOutbox>();
     public DbSet<EmailLog> EmailLogs => Set<EmailLog>();
 
@@ -36,6 +38,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
         base.OnModelCreating(modelBuilder);
 
         // Global query filter for soft delete
+        modelBuilder.Entity<User>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Customer>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Enquiry>().HasQueryFilter(e => !e.IsDeleted);
         modelBuilder.Entity<Quotation>().HasQueryFilter(e => !e.IsDeleted);
@@ -111,6 +114,11 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
              .WithMany(c => c.Enquiries)
              .HasForeignKey(e => e.CustomerId)
              .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(e => e.User)
+             .WithMany(u => u.Enquiries)
+             .HasForeignKey(e => e.UserId)
+             .OnDelete(DeleteBehavior.SetNull);
 
             b.HasOne(e => e.ServiceCategory)
              .WithMany()
@@ -333,6 +341,31 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             b.Property(e => e.RecipientEmail).HasMaxLength(150).IsRequired();
             b.Property(e => e.Subject).HasMaxLength(250).IsRequired();
             b.Property(e => e.EventType).HasMaxLength(100).IsRequired();
+        });
+
+        // User
+        modelBuilder.Entity<User>(b =>
+        {
+            b.ToTable("users");
+            b.HasIndex(u => u.Email).IsUnique();
+            b.Property(u => u.FullName).HasMaxLength(150).IsRequired();
+            b.Property(u => u.Email).HasMaxLength(150).IsRequired();
+            b.Property(u => u.PhoneNumber).HasMaxLength(50).IsRequired();
+            b.Property(u => u.CompanyName).HasMaxLength(150);
+            b.Property(u => u.PasswordHash).HasMaxLength(255).IsRequired();
+            b.HasOne(u => u.Customer)
+             .WithOne(c => c.User)
+             .HasForeignKey<User>(u => u.CustomerId)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // AppConfiguration
+        modelBuilder.Entity<AppConfiguration>(b =>
+        {
+            b.ToTable("app_configurations");
+            b.HasIndex(c => c.ConfigKey).IsUnique();
+            b.Property(c => c.ConfigKey).HasMaxLength(100).IsRequired();
+            b.Property(c => c.ConfigValue).IsRequired();
         });
     }
 

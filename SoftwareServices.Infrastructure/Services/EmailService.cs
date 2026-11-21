@@ -1,5 +1,6 @@
 using MailKit.Net.Smtp;
 using MailKit.Security;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MimeKit;
@@ -56,6 +57,49 @@ public class EmailService : IEmailService
         var password = _configuration["Smtp:Password"];
         var fromEmail = _configuration["Smtp:FromEmail"] ?? "noreply@example.com";
         var fromName = _configuration["Smtp:FromName"] ?? "Software Services";
+
+        // Check if DB configuration overrides SMTP settings or disables email
+        try
+        {
+            var emailConfigEntry = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                _context.AppConfigurations.AsNoTracking(),
+                c => c.ConfigKey == "EmailConfig");
+
+            if (emailConfigEntry != null && !string.IsNullOrWhiteSpace(emailConfigEntry.ConfigValue))
+            {
+                var doc = System.Text.Json.JsonDocument.Parse(emailConfigEntry.ConfigValue);
+                if (doc.RootElement.TryGetProperty("EmailsEnabled", out var enabledProp) || doc.RootElement.TryGetProperty("emailsEnabled", out enabledProp))
+                {
+                    if (!enabledProp.GetBoolean())
+                    {
+                        _logger.LogInformation("Outbound emails are disabled by administrator in AppConfigurations. Skipping dispatch to {Recipient}", recipientEmail);
+                        return true;
+                    }
+                }
+
+                if (doc.RootElement.TryGetProperty("SmtpHost", out var hProp) || doc.RootElement.TryGetProperty("smtpHost", out hProp))
+                    if (!string.IsNullOrWhiteSpace(hProp.GetString())) host = hProp.GetString();
+
+                if (doc.RootElement.TryGetProperty("SmtpPort", out var pProp) || doc.RootElement.TryGetProperty("smtpPort", out pProp))
+                    if (pProp.TryGetInt32(out var pt)) port = pt;
+
+                if (doc.RootElement.TryGetProperty("Username", out var uProp) || doc.RootElement.TryGetProperty("username", out uProp))
+                    if (!string.IsNullOrWhiteSpace(uProp.GetString())) username = uProp.GetString();
+
+                if (doc.RootElement.TryGetProperty("Password", out var pwdProp) || doc.RootElement.TryGetProperty("password", out pwdProp))
+                    if (!string.IsNullOrWhiteSpace(pwdProp.GetString())) password = pwdProp.GetString();
+
+                if (doc.RootElement.TryGetProperty("FromEmail", out var feProp) || doc.RootElement.TryGetProperty("fromEmail", out feProp))
+                    if (!string.IsNullOrWhiteSpace(feProp.GetString())) fromEmail = feProp.GetString();
+
+                if (doc.RootElement.TryGetProperty("FromName", out var fnProp) || doc.RootElement.TryGetProperty("fromName", out fnProp))
+                    if (!string.IsNullOrWhiteSpace(fnProp.GetString())) fromName = fnProp.GetString();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Notice checking DB email configuration; falling back to appsettings.");
+        }
 
         // If host is dummy/unconfigured, log and return gracefully
         if (string.IsNullOrWhiteSpace(host) || host == "example.smtp.com" || string.IsNullOrWhiteSpace(username) || username == "your-smtp-username")
