@@ -13,11 +13,59 @@ public class DatabaseSeeder
     {
         try
         {
-            // 1. Seed Admin User
-            if (!await context.AdminUsers.AnyAsync())
+            // 0. Ensure critical tables exist (idempotent fallback if migrations have not yet run)
+            if (context is DbContext efDbContext)
+            {
+                try
+                {
+                    const string schemaSql = @"
+CREATE TABLE IF NOT EXISTS app_configurations (
+    ""Id"" SERIAL PRIMARY KEY,
+    ""ConfigKey"" VARCHAR(100) NOT NULL,
+    ""ConfigValue"" TEXT NOT NULL,
+    ""Description"" TEXT,
+    ""CreatedAt"" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+    ""UpdatedAt"" TIMESTAMP WITHOUT TIME ZONE,
+    ""IsDeleted"" BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    ""Id"" SERIAL PRIMARY KEY,
+    ""FullName"" VARCHAR(150) NOT NULL,
+    ""Email"" VARCHAR(150) NOT NULL,
+    ""PhoneNumber"" VARCHAR(50) NOT NULL,
+    ""CompanyName"" VARCHAR(150),
+    ""PasswordHash"" VARCHAR(255) NOT NULL,
+    ""IsEmailVerified"" BOOLEAN NOT NULL DEFAULT FALSE,
+    ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+    ""LastLoginAt"" TIMESTAMP WITHOUT TIME ZONE,
+    ""CustomerId"" INTEGER,
+    ""CreatedAt"" TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+    ""UpdatedAt"" TIMESTAMP WITHOUT TIME ZONE,
+    ""IsDeleted"" BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+DO $$ 
+BEGIN 
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='enquiries' AND column_name='UserId') THEN
+        ALTER TABLE enquiries ADD COLUMN ""UserId"" INTEGER;
+    END IF;
+END $$;
+";
+                    await efDbContext.Database.ExecuteSqlRawAsync(schemaSql);
+                }
+                catch (Exception ddlEx)
+                {
+                    logger.LogWarning("Notice during idempotent DDL schema check: {Message}", ddlEx.Message);
+                }
+            }
+
+            // 1. Seed or Verify Default Admin User
+            var defaultAdmin = await context.AdminUsers.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin");
+            if (defaultAdmin == null)
             {
                 logger.LogInformation("Seeding default Administrator...");
-                var defaultAdmin = new AdminUser
+                defaultAdmin = new AdminUser
                 {
                     Username = "admin",
                     Email = "admin@softwareservices.com",
@@ -27,6 +75,11 @@ public class DatabaseSeeder
                     IsActive = true
                 };
                 context.AdminUsers.Add(defaultAdmin);
+                await context.SaveChangesAsync();
+            }
+            else if (!defaultAdmin.IsActive)
+            {
+                defaultAdmin.IsActive = true;
                 await context.SaveChangesAsync();
             }
 
@@ -520,58 +573,65 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
             }
 
             // 7. Seed App Configurations (Dynamic JSON configurations)
-            if (!await context.AppConfigurations.AnyAsync())
+            try
             {
-                logger.LogInformation("Seeding App Configurations (JSON key-value settings)...");
-
-                var appConfigs = new List<AppConfiguration>
+                if (!await context.AppConfigurations.AnyAsync())
                 {
-                    new()
-                    {
-                        ConfigKey = "TokenConfig",
-                        ConfigValue = JsonSerializer.Serialize(new
-                        {
-                            TokenTimeoutMinutes = 60,
-                            RefreshTokenDays = 7
-                        }, new JsonSerializerOptions { WriteIndented = true }),
-                        Description = "JWT session authentication timeout and refresh token lifespan"
-                    },
-                    new()
-                    {
-                        ConfigKey = "EmailConfig",
-                        ConfigValue = JsonSerializer.Serialize(new
-                        {
-                            EmailsEnabled = true,
-                            SendCustomerNotifications = true,
-                            SendAdminNotifications = true,
-                            SmtpHost = "smtp.gmail.com",
-                            SmtpPort = 587,
-                            Username = "softwareservices2001@gmail.com",
-                            Password = "niywncoibgfffxbd",
-                            FromEmail = "softwareservices2001@gmail.com",
-                            FromName = "Software Services",
-                            AdminNotificationEmail = "softwareservices2001@gmail.com",
-                            EnableSsl = true
-                        }, new JsonSerializerOptions { WriteIndented = true }),
-                        Description = "Master email notifications switch, notification controls, and SMTP credentials"
-                    },
-                    new()
-                    {
-                        ConfigKey = "WebsiteConfig",
-                        ConfigValue = JsonSerializer.Serialize(new
-                        {
-                            SiteName = "Software Services Platform",
-                            SupportEmail = "manishkiran8464@gmail.com",
-                            SupportPhone = "+91 8464992957",
-                            ContactAddress = "Rc puram Hyd",
-                            MaintenanceMode = false
-                        }, new JsonSerializerOptions { WriteIndented = true }),
-                        Description = "General platform branding, support contact channels, and maintenance mode toggle"
-                    }
-                };
+                    logger.LogInformation("Seeding App Configurations (JSON key-value settings)...");
 
-                context.AppConfigurations.AddRange(appConfigs);
-                await context.SaveChangesAsync();
+                    var appConfigs = new List<AppConfiguration>
+                    {
+                        new()
+                        {
+                            ConfigKey = "TokenConfig",
+                            ConfigValue = JsonSerializer.Serialize(new
+                            {
+                                TokenTimeoutMinutes = 60,
+                                RefreshTokenDays = 7
+                            }, new JsonSerializerOptions { WriteIndented = true }),
+                            Description = "JWT session authentication timeout and refresh token lifespan"
+                        },
+                        new()
+                        {
+                            ConfigKey = "EmailConfig",
+                            ConfigValue = JsonSerializer.Serialize(new
+                            {
+                                EmailsEnabled = true,
+                                SendCustomerNotifications = true,
+                                SendAdminNotifications = true,
+                                SmtpHost = "smtp.gmail.com",
+                                SmtpPort = 587,
+                                Username = "softwareservices2001@gmail.com",
+                                Password = "niywncoibgfffxbd",
+                                FromEmail = "softwareservices2001@gmail.com",
+                                FromName = "Software Services",
+                                AdminNotificationEmail = "softwareservices2001@gmail.com",
+                                EnableSsl = true
+                            }, new JsonSerializerOptions { WriteIndented = true }),
+                            Description = "Master email notifications switch, notification controls, and SMTP credentials"
+                        },
+                        new()
+                        {
+                            ConfigKey = "WebsiteConfig",
+                            ConfigValue = JsonSerializer.Serialize(new
+                            {
+                                SiteName = "Software Services Platform",
+                                SupportEmail = "manishkiran8464@gmail.com",
+                                SupportPhone = "+91 8464992957",
+                                ContactAddress = "Rc puram Hyd",
+                                MaintenanceMode = false
+                            }, new JsonSerializerOptions { WriteIndented = true }),
+                            Description = "General platform branding, support contact channels, and maintenance mode toggle"
+                        }
+                    };
+
+                    context.AppConfigurations.AddRange(appConfigs);
+                    await context.SaveChangesAsync();
+                }
+            }
+            catch (Exception cfgEx)
+            {
+                logger.LogWarning("Notice during AppConfigurations seeding: {Message}", cfgEx.Message);
             }
 
             logger.LogInformation("Database seed verification completed.");
