@@ -634,11 +634,422 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
                 logger.LogWarning("Notice during AppConfigurations seeding: {Message}", cfgEx.Message);
             }
 
+            // 8. Seed Rich Sample Business Data (25 Enquiries, 25 Customers, Quotations, Earnings & Payments)
+            await SeedSampleBusinessDataAsync(context, logger);
+
             logger.LogInformation("Database seed verification completed.");
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "An error occurred during database seeding.");
+        }
+    }
+
+    public static async Task SeedSampleBusinessDataAsync(IApplicationDbContext context, ILogger logger)
+    {
+        try
+        {
+            // If already seeded with 20+ enquiries, skip
+            var enquiryCount = await context.Enquiries.CountAsync();
+            if (enquiryCount >= 20)
+            {
+                logger.LogInformation("Database already has {Count} enquiries. Sample business data is already populated.", enquiryCount);
+                return;
+            }
+
+            logger.LogInformation("Seeding fresh sample business dataset (25 customers, 25 enquiries, quotations, projects, earnings, and users)...");
+
+            if (context is DbContext efDbContext)
+            {
+                await efDbContext.Database.ExecuteSqlRawAsync(@"
+                    DELETE FROM payments;
+                    DELETE FROM project_milestones;
+                    DELETE FROM projects;
+                    DELETE FROM quotation_items;
+                    DELETE FROM quotation_status_histories;
+                    DELETE FROM quotations;
+                    DELETE FROM enquiry_notes;
+                    DELETE FROM enquiry_attachments;
+                    DELETE FROM enquiries;
+                    DELETE FROM users;
+                    DELETE FROM customers;
+                ");
+            }
+
+            // Retrieve service categories
+            var categories = await context.ServiceCategories.ToListAsync();
+            var catStudent = categories.FirstOrDefault(c => c.Slug == "student-project-guidance") ?? categories[0];
+            var catSupport = categories.FirstOrDefault(c => c.Slug == "developer-technical-support") ?? categories[1];
+            var catEnterprise = categories.FirstOrDefault(c => c.Slug == "business-software-development") ?? categories[2];
+
+            // 1. Create 25 Customers
+            var customerSeeds = new (string Name, string Email, string Phone, string Company)[]
+            {
+                ("Rahul Sharma", "rahul.sharma@technovalabs.com", "+91 98450 12345", "TechNova Labs"),
+                ("Priya Patel", "priya.patel@innovatesoft.com", "+91 98230 23456", "InnovateSoft Solutions"),
+                ("Amit Verma", "amit.verma@zenithcloud.com", "+91 99120 34567", "Zenith Cloud Tech"),
+                ("Sneha Reddy", "sneha.reddy@apexdigital.com", "+91 94401 45678", "Apex Digital Systems"),
+                ("Vikram Singh", "vikram.singh@cloudmatrix.com", "+91 97110 56789", "CloudMatrix Enterprise"),
+                ("Ananya Roy", "ananya.roy@aiminds.org", "+91 98300 67890", "AI Minds Research"),
+                ("Rohit Gupta", "rohit.gupta@vanguardretail.in", "+91 98100 78901", "Vanguard Retail"),
+                ("Neha Joshi", "neha.joshi@pulsehealth.com", "+91 94440 89012", "Pulse Healthcare Systems"),
+                ("Karan Malhotra", "karan.malhotra@logitrack.co", "+91 99990 90123", "LogiTrack Worldwide"),
+                ("Divya Nair", "divya.nair@finflow.io", "+91 98470 01234", "FinFlow Payments"),
+                ("Aditya Kulkarni", "aditya.kulkarni@agripulse.in", "+91 98220 11223", "AgriPulse Tech"),
+                ("Pooja Deshmukh", "pooja.deshmukh@edusphere.edu", "+91 97660 22334", "EduSphere Academy"),
+                ("Suresh Ramakrishnan", "suresh.r@smartcommerce.in", "+91 98410 33445", "SmartCommerce"),
+                ("Meera Sundaram", "meera.sundaram@optimalog.com", "+91 94450 44556", "Optima Logistics"),
+                ("Rajesh Nambiar", "rajesh.nambiar@medicore.org", "+91 94470 55667", "MediCore Clinics"),
+                ("Swati Saxena", "swati.saxena@cybersafe.tech", "+91 98110 66778", "CyberSafe Defense"),
+                ("Varun Kapoor", "varun.kapoor@omnistack.com", "+91 98720 77889", "OmniStack Global"),
+                ("Ritu Aggarwal", "ritu.aggarwal@smarthotel.in", "+91 98290 88990", "SmartHotel Solutions"),
+                ("Manoj Tiwari", "manoj.tiwari@realestatehub.in", "+91 94150 99001", "RealEstate Hub"),
+                ("Sandeep Pillai", "sandeep.pillai@fleetpro.co", "+91 98420 12340", "FleetPro Transports"),
+                ("Alok Das", "alok.das@infrabuild.io", "+91 94370 23451", "InfraBuild SaaS"),
+                ("Kavita Menon", "kavita.menon@legaledge.in", "+91 98450 34562", "LegalEdge Technologies"),
+                ("Chetan Mehta", "chetan.mehta@solarpulse.com", "+91 98250 45673", "SolarPulse Green Energy"),
+                ("Sunita Sharma", "sunita.sharma@retailwave.in", "+91 98930 56784", "RetailWave Omnichannel"),
+                ("Harish Kumar", "harish.kumar@codecraft.edu", "+91 94400 67895", "CodeCraft Academy")
+            };
+
+            var customers = new List<Customer>();
+            foreach (var c in customerSeeds)
+            {
+                customers.Add(new Customer
+                {
+                    FullName = c.Name,
+                    Email = c.Email,
+                    PhoneNumber = c.Phone,
+                    CompanyName = c.Company,
+                    CreatedAt = DateTime.UtcNow.AddDays(-Random.Shared.Next(10, 90))
+                });
+            }
+
+            context.Customers.AddRange(customers);
+            await context.SaveChangesAsync();
+
+            // 2. Create 5 Registered Users linked to the first 5 customers
+            var testPasswordHash = BCrypt.Net.BCrypt.HashPassword("User@123");
+            var users = new List<User>();
+            for (int i = 0; i < 5; i++)
+            {
+                var cust = customers[i];
+                users.Add(new User
+                {
+                    FullName = cust.FullName,
+                    Email = cust.Email,
+                    PhoneNumber = cust.PhoneNumber,
+                    CompanyName = cust.CompanyName,
+                    PasswordHash = testPasswordHash,
+                    CustomerId = cust.Id,
+                    IsEmailVerified = true,
+                    IsActive = true,
+                    CreatedAt = cust.CreatedAt,
+                    LastLoginAt = DateTime.UtcNow.AddHours(-Random.Shared.Next(1, 48))
+                });
+            }
+
+            context.Users.AddRange(users);
+            await context.SaveChangesAsync();
+
+            // 3. Create 25 Enquiries with realistic details
+            var enquiryConfigs = new (string Title, string Tech, string Budget, string Timeline, int CatIndex, EnquiryStatus Status, int CustIndex)[]
+            {
+                ("Hospital Management System with Electronic Health Records", "ASP.NET Core, React, PostgreSQL", "₹2,50,000 - ₹3,50,000", "2 - 3 Months", 2, EnquiryStatus.Closed, 7),
+                ("MCA Final Year Project: Distributed E-Commerce Microservices", "Java, Spring Boot, React, Docker", "₹25,000 - ₹35,000", "1 Month", 0, EnquiryStatus.Converted, 0),
+                ("PostgreSQL Query Performance Optimization & Index Tuning", "PostgreSQL, EF Core, Linux", "₹40,000 - ₹60,000", "2 Weeks", 1, EnquiryStatus.Converted, 2),
+                ("B.Tech Final Year: AI Medical Image Diagnostics in Python & React", "Python, FastAPI, TensorFlow, React", "₹25,000 - ₹40,000", "1 Month", 0, EnquiryStatus.Quoted, 5),
+                ("Warehouse Inventory Tracking & Barcode Scanner Mobile Web App", "Next.js, Node.js, PostgreSQL", "₹1,80,000 - ₹2,50,000", "2 Months", 2, EnquiryStatus.Quoted, 8),
+                ("High-Throughput REST API Microservice in ASP.NET Core 10", ".NET 10, Redis, Docker, RabbitMQ", "₹75,000 - ₹1,20,000", "3 Weeks", 1, EnquiryStatus.Quoted, 1),
+                ("Online University Examination & Automated Proctoring System", "ASP.NET Core, WebRTC, React, SQL", "₹35,000 - ₹50,000", "1 Month", 0, EnquiryStatus.Quoted, 11),
+                ("Cloud-Native Multi-Tenant CRM Platform for Real Estate Brokers", "React, .NET 10, PostgreSQL, AWS", "₹3,00,000 - ₹4,50,000", "3 Months", 2, EnquiryStatus.Quoted, 18),
+                ("Docker Containerization & CI/CD Pipeline Migration for .NET", "Docker, GitHub Actions, Raspberry Pi / Ubuntu", "₹30,000 - ₹50,000", "1 Week", 1, EnquiryStatus.Reviewed, 3),
+                ("M.Tech Project: Blockchain-Based Supply Chain Provenance", "Solidity, Ethereum, Web3.js, React", "₹30,000 - ₹45,000", "1 Month", 0, EnquiryStatus.Reviewed, 16),
+                ("Fleet Management & GPS Live Telematics Dashboard", "React, Node.js, Socket.io, Leaflet Maps", "₹2,00,000 - ₹3,00,000", "2 Months", 2, EnquiryStatus.Reviewed, 19),
+                ("EF Core N+1 Query Auditing & Memory Leak Profiling", ".NET, EF Core, BenchmarkDotNet", "₹35,000 - ₹50,000", "10 Days", 1, EnquiryStatus.Reviewed, 4),
+                ("IoT Smart Agriculture Sensor Analytics Web Application", "ESP32, MQTT, Python Flask, Chart.js", "₹25,000 - ₹35,000", "3 Weeks", 0, EnquiryStatus.Reviewed, 10),
+                ("Bespoke ERP Software for Manufacturing & Stock Control", ".NET 10, React, PostgreSQL", "₹4,00,000 - ₹6,00,000", "4 Months", 2, EnquiryStatus.New, 20),
+                ("Legacy ASP.NET MVC 5 to ASP.NET Core 10 Migration Support", "C#, ASP.NET Core, EF Core", "₹80,000 - ₹1,50,000", "1 Month", 1, EnquiryStatus.New, 14),
+                ("MCA Major Project: AI-Powered Resume Screening & Matcher", "Python NLP, spaCy, React, FastAPI", "₹20,000 - ₹30,000", "3 Weeks", 0, EnquiryStatus.New, 24),
+                ("Multi-Vendor Marketplace with Vendor Dashboard & Escrow", "Next.js, Node.js, Stripe, PostgreSQL", "₹2,50,000 - ₹3,80,000", "3 Months", 2, EnquiryStatus.New, 6),
+                ("OAuth2 SSO & JWT Authorization Architecture Consulting", "Keycloak, ASP.NET Core, JWT, OpenIddict", "₹45,000 - ₹70,000", "2 Weeks", 1, EnquiryStatus.New, 15),
+                ("College Library Management & Digital Dissertation Repository", "React, Python, Django, PostgreSQL", "₹25,000 - ₹35,000", "1 Month", 0, EnquiryStatus.New, 21),
+                ("Restaurant POS & Touchscreen Table Ordering System", "React, Tailwind, Express.js, SQLite / Postgres", "₹1,20,000 - ₹1,80,000", "6 Weeks", 2, EnquiryStatus.Converted, 17),
+                ("Redis Distributed Caching Setup for High-Traffic News Portal", "Redis, ASP.NET Core, Linux", "₹35,000 - ₹55,000", "10 Days", 1, EnquiryStatus.Converted, 22),
+                ("B.Tech Minor Project: Smart Attendance via Facial Recognition", "OpenCV, Python, SQLite, Tkinter / Streamlit", "₹15,000 - ₹22,000", "2 Weeks", 0, EnquiryStatus.Converted, 23),
+                ("B2B Wholesale Bidding & Reverse Auction Platform", "React, .NET Core, SignalR, PostgreSQL", "₹3,20,000 - ₹4,80,000", "3 Months", 2, EnquiryStatus.Closed, 12),
+                ("Stripe & Razorpay Payment Gateway Webhook Reconciliation", ".NET 10, Razorpay Webhooks, Stripe SDK", "₹30,000 - ₹45,000", "1 Week", 1, EnquiryStatus.Quoted, 9),
+                ("Student Code Review, Architecture Synopsis & Viva Guidance", "C#, ASP.NET Core, React, Viva Prep", "₹12,000 - ₹18,000", "1 Week", 0, EnquiryStatus.Quoted, 13)
+            };
+
+            var enquiries = new List<Enquiry>();
+            for (int i = 0; i < enquiryConfigs.Length; i++)
+            {
+                var cfg = enquiryConfigs[i];
+                var cust = customers[cfg.CustIndex];
+                var cat = cfg.CatIndex == 0 ? catStudent : (cfg.CatIndex == 1 ? catSupport : catEnterprise);
+                var createdDate = DateTime.UtcNow.AddDays(-Random.Shared.Next(5, 75));
+
+                var refNum = $"ENQ-20261121-{(1000 + i + 1)}";
+                var enq = new Enquiry
+                {
+                    ReferenceNumber = refNum,
+                    CustomerId = cust.Id,
+                    ServiceCategoryId = cat.Id,
+                    ProjectTitle = cfg.Title,
+                    ProjectDescription = $"Project enquiry for {cfg.Title}. Requirement involves {cfg.Tech}. Estimated client target is {cfg.Budget}.",
+                    RequiredTechnology = cfg.Tech,
+                    EstimatedBudget = cfg.Budget,
+                    Status = cfg.Status,
+                    CreatedAt = createdDate,
+                    UserId = cfg.CustIndex < users.Count ? users[cfg.CustIndex].Id : null
+                };
+
+                enquiries.Add(enq);
+            }
+
+            context.Enquiries.AddRange(enquiries);
+            await context.SaveChangesAsync();
+
+            // 4. Create 15 Quotations with realistic values & statuses
+            var quoteData = new (int EnqIndex, decimal SubTotal, QuotationStatus Status)[]
+            {
+                (0, 280000m, QuotationStatus.Accepted), // Hospital System
+                (1, 28000m, QuotationStatus.Accepted),  // MCA Project
+                (2, 45000m, QuotationStatus.Accepted),  // Postgres Tuning
+                (3, 32000m, QuotationStatus.Sent),      // AI Diagnostics
+                (4, 195000m, QuotationStatus.Viewed),   // Warehouse Barcode
+                (5, 85000m, QuotationStatus.Sent),      // High-Throughput API
+                (6, 42000m, QuotationStatus.Accepted),  // Online Exam
+                (7, 340000m, QuotationStatus.Sent),     // Multi-Tenant CRM
+                (19, 145000m, QuotationStatus.Accepted),// Restaurant POS
+                (20, 48000m, QuotationStatus.Accepted), // Redis Caching
+                (21, 18000m, QuotationStatus.Viewed),   // Smart Attendance
+                (22, 380000m, QuotationStatus.Accepted),// B2B Auction
+                (23, 35000m, QuotationStatus.Sent),     // Payment Gateway
+                (24, 15000m, QuotationStatus.Rejected), // Student Code Review
+                (8, 38000m, QuotationStatus.Rejected)   // Docker CI/CD
+            };
+
+            var quotations = new List<Quotation>();
+            for (int i = 0; i < quoteData.Length; i++)
+            {
+                var qd = quoteData[i];
+                var enq = enquiries[qd.EnqIndex];
+                var cust = customers.First(c => c.Id == enq.CustomerId);
+                var subTotal = qd.SubTotal;
+                var tax = Math.Round(subTotal * 0.18m, 2);
+                var total = subTotal + tax;
+                var advance = Math.Round(total * 0.4m, 2);
+
+                var q = new Quotation
+                {
+                    QuotationNumber = $"QUO-202611-{(2000 + i + 1)}",
+                    EnquiryId = enq.Id,
+                    CustomerId = cust.Id,
+                    ServiceDescription = enq.ProjectTitle,
+                    Deliverables = "Architectural blueprint, implementation source code, test suites, and containerized deployment handover.",
+                    DevelopmentCost = subTotal,
+                    TaxRate = 18m,
+                    TaxAmount = tax,
+                    TotalAmount = total,
+                    AdvancePaymentAmount = advance,
+                    RemainingPaymentAmount = total - advance,
+                    Status = qd.Status,
+                    ExpectedDeliveryDate = DateTime.UtcNow.AddDays(Random.Shared.Next(15, 60)),
+                    ValidUntil = DateTime.UtcNow.AddDays(30),
+                    SecureToken = Guid.NewGuid().ToString("N"),
+                    CreatedAt = enq.CreatedAt.AddDays(2),
+                    SentAt = enq.CreatedAt.AddDays(3),
+                    RespondedAt = qd.Status == QuotationStatus.Accepted || qd.Status == QuotationStatus.Rejected ? enq.CreatedAt.AddDays(5) : null
+                };
+
+                // Add Quotation Items
+                q.Items.Add(new QuotationItem
+                {
+                    Title = "Core System Architecture & Implementation",
+                    Description = $"Primary engineering deliverables for {enq.ProjectTitle}",
+                    Quantity = 1,
+                    UnitPrice = Math.Round(subTotal * 0.7m, 2),
+                    TotalPrice = Math.Round(subTotal * 0.7m, 2)
+                });
+
+                q.Items.Add(new QuotationItem
+                {
+                    Title = "Testing, Quality Assurance & Deployment Setup",
+                    Description = "Unit testing, containerized deployment, performance benchmarking & handover",
+                    Quantity = 1,
+                    UnitPrice = Math.Round(subTotal * 0.3m, 2),
+                    TotalPrice = Math.Round(subTotal * 0.3m, 2)
+                });
+
+                // Add Status History
+                q.StatusHistory.Add(new QuotationStatusHistory
+                {
+                    PreviousStatus = null,
+                    NewStatus = QuotationStatus.Draft,
+                    ChangedBy = "System",
+                    Remarks = "Initial technical proposal generated"
+                });
+
+                if (q.Status != QuotationStatus.Draft)
+                {
+                    q.StatusHistory.Add(new QuotationStatusHistory
+                    {
+                        PreviousStatus = QuotationStatus.Draft,
+                        NewStatus = QuotationStatus.Sent,
+                        ChangedBy = "Administrator",
+                        Remarks = "Proposal emailed to client"
+                    });
+                }
+
+                if (q.Status == QuotationStatus.Accepted)
+                {
+                    q.StatusHistory.Add(new QuotationStatusHistory
+                    {
+                        PreviousStatus = QuotationStatus.Sent,
+                        NewStatus = QuotationStatus.Accepted,
+                        ChangedBy = "Customer",
+                        Remarks = "Quotation formally accepted by customer"
+                    });
+                }
+                else if (q.Status == QuotationStatus.Rejected)
+                {
+                    q.StatusHistory.Add(new QuotationStatusHistory
+                    {
+                        PreviousStatus = QuotationStatus.Sent,
+                        NewStatus = QuotationStatus.Rejected,
+                        ChangedBy = "Customer",
+                        Remarks = "Quotation declined by client"
+                    });
+                }
+
+                quotations.Add(q);
+            }
+
+            context.Quotations.AddRange(quotations);
+            await context.SaveChangesAsync();
+
+            // 5. Create 8 Projects from Accepted Quotations
+            var acceptedQuotes = quotations.Where(q => q.Status == QuotationStatus.Accepted).ToList();
+            var projects = new List<Project>();
+            for (int i = 0; i < acceptedQuotes.Count; i++)
+            {
+                var q = acceptedQuotes[i];
+                var enq = enquiries.First(e => e.Id == q.EnquiryId);
+                var isCompleted = i % 3 == 0;
+                var progress = isCompleted ? 100 : (i == 1 ? 85 : (i == 2 ? 65 : (i == 4 ? 40 : 25)));
+
+                var prj = new Project
+                {
+                    ProjectNumber = $"PRJ-2026-{(3000 + i + 1)}",
+                    CustomerId = q.CustomerId,
+                    QuotationId = q.Id,
+                    ProjectTitle = enq.ProjectTitle,
+                    Description = $"Live engagement for {enq.ProjectTitle}. Scope defined per quotation {q.QuotationNumber}.",
+                    AgreedAmount = q.TotalAmount,
+                    StartDate = q.CreatedAt.AddDays(5),
+                    ExpectedCompletionDate = q.ExpectedDeliveryDate,
+                    ActualCompletionDate = isCompleted ? q.CreatedAt.AddDays(40) : null,
+                    Status = isCompleted ? ProjectStatus.Completed : ProjectStatus.InProgress,
+                    ProgressPercentage = progress,
+                    CreatedAt = q.CreatedAt.AddDays(5)
+                };
+
+                // Add milestones
+                prj.Milestones.Add(new ProjectMilestone
+                {
+                    Title = "Milestone 1: Architectural Blueprint & Schema Setup",
+                    Description = "Initial architecture, entity models, and database schema setup",
+                    Amount = Math.Round(q.TotalAmount * 0.4m, 2),
+                    DueDate = prj.StartDate.AddDays(14),
+                    IsCompleted = true,
+                    CompletedAt = prj.StartDate.AddDays(12),
+                    CreatedAt = prj.CreatedAt
+                });
+
+                prj.Milestones.Add(new ProjectMilestone
+                {
+                    Title = "Milestone 2: Core Feature Implementation & Testing",
+                    Description = "Implementation of core application features and unit testing",
+                    Amount = Math.Round(q.TotalAmount * 0.4m, 2),
+                    DueDate = prj.StartDate.AddDays(30),
+                    IsCompleted = isCompleted,
+                    CompletedAt = isCompleted ? prj.StartDate.AddDays(28) : null,
+                    CreatedAt = prj.CreatedAt
+                });
+
+                prj.Milestones.Add(new ProjectMilestone
+                {
+                    Title = "Milestone 3: Final Deployment & Documentation Handover",
+                    Description = "Production deployment, release notes, and client knowledge transfer",
+                    Amount = Math.Round(q.TotalAmount * 0.2m, 2),
+                    DueDate = prj.ExpectedCompletionDate,
+                    IsCompleted = isCompleted,
+                    CompletedAt = isCompleted ? prj.StartDate.AddDays(40) : null,
+                    CreatedAt = prj.CreatedAt
+                });
+
+                projects.Add(prj);
+            }
+
+            context.Projects.AddRange(projects);
+            await context.SaveChangesAsync();
+
+            // 6. Create 12 Payments (Generates ~₹4,85,000+ recorded revenue for dashboard charts)
+            var payments = new List<Payment>();
+            var paymentMethods = new[] { "Bank Transfer (NEFT)", "UPI - GPay / PhonePe", "Razorpay Payment Gateway", "Stripe Online", "IMPS" };
+
+            int payIndex = 1;
+            foreach (var prj in projects)
+            {
+                // Advance payment for each project
+                var advanceAmount = Math.Round(prj.AgreedAmount * 0.4m, 2);
+                payments.Add(new Payment
+                {
+                    CustomerId = prj.CustomerId,
+                    ProjectId = prj.Id,
+                    PaymentType = PaymentType.Advance,
+                    Amount = advanceAmount,
+                    PaymentMethod = paymentMethods[payIndex % paymentMethods.Length],
+                    TransactionReference = $"TXN-202610-{(8000 + payIndex)}",
+                    PaymentDate = prj.StartDate.AddDays(1),
+                    Status = PaymentStatus.Received,
+                    Notes = $"Advance Milestone 1 payment for {prj.ProjectNumber}",
+                    CreatedAt = prj.StartDate.AddDays(1)
+                });
+                payIndex++;
+
+                // If completed or high progress, add milestone 2 payment
+                if (prj.ProgressPercentage >= 65)
+                {
+                    var m2Amount = Math.Round(prj.AgreedAmount * 0.35m, 2);
+                    payments.Add(new Payment
+                    {
+                        CustomerId = prj.CustomerId,
+                        ProjectId = prj.Id,
+                        PaymentType = PaymentType.Milestone,
+                        Amount = m2Amount,
+                        PaymentMethod = paymentMethods[payIndex % paymentMethods.Length],
+                        TransactionReference = $"TXN-202611-{(8000 + payIndex)}",
+                        PaymentDate = prj.StartDate.AddDays(20),
+                        Status = PaymentStatus.Received,
+                        Notes = $"Milestone 2 development payment for {prj.ProjectNumber}",
+                        CreatedAt = prj.StartDate.AddDays(20)
+                    });
+                    payIndex++;
+                }
+            }
+
+            context.Payments.AddRange(payments);
+            await context.SaveChangesAsync();
+
+            logger.LogInformation("Successfully populated sample business dataset with {C} customers, {E} enquiries, {Q} quotations, {P} projects, and {Pay} payments.",
+                customers.Count, enquiries.Count, quotations.Count, projects.Count, payments.Count);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error while seeding sample business dataset: {Message}", ex.Message);
         }
     }
 }

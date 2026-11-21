@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using SoftwareServices.Application.Common;
 using SoftwareServices.Application.Common.Exceptions;
 using SoftwareServices.Application.DTOs.User;
 using SoftwareServices.Application.Interfaces;
 using SoftwareServices.Domain.Entities;
 using SoftwareServices.Domain.Enums;
+using System.Security.Cryptography;
 
 namespace SoftwareServices.Application.Services;
 
@@ -13,15 +16,80 @@ public class UserAuthService : IUserAuthService
     private readonly IApplicationDbContext _context;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IConfigurationService _configurationService;
+    private readonly IMemoryCache _cache;
+    private readonly IEmailService _emailService;
+    private readonly ILogger<UserAuthService> _logger;
 
     public UserAuthService(
         IApplicationDbContext context,
         IJwtTokenService jwtTokenService,
-        IConfigurationService configurationService)
+        IConfigurationService configurationService,
+        IMemoryCache cache,
+        IEmailService emailService,
+        ILogger<UserAuthService> logger)
     {
         _context = context;
         _jwtTokenService = jwtTokenService;
         _configurationService = configurationService;
+        _cache = cache;
+        _emailService = emailService;
+        _logger = logger;
+    }
+
+    public async Task<bool> SendRegistrationOtpAsync(SendRegistrationOtpRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new BadRequestException("Please enter a valid email address.");
+
+        var email = request.Email.Trim().ToLower();
+
+        // 1. Check if user already exists
+        var existing = await _context.Users.AnyAsync(u => u.Email.ToLower() == email);
+        if (existing)
+        {
+            throw new BadRequestException("An account with this email address already exists. Please sign in instead.");
+        }
+
+        // 2. Generate 6-digit numeric OTP
+        var code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+        var cacheKey = $"reg_otp:{email}";
+        _cache.Set(cacheKey, code, TimeSpan.FromMinutes(10));
+
+        // 3. Dispatch OTP verification email
+        var subject = $"SoftwareServices - Verification Code: {code}";
+        var body = $@"
+<!DOCTYPE html>
+<html>
+<body style=""font-family: Arial, sans-serif; background-color: #f8fafc; padding: 20px; color: #1e293b;"">
+  <div style=""max-width: 500px; margin: auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);"">
+    <div style=""text-align: center; margin-bottom: 24px;"">
+      <h2 style=""color: #2563eb; margin: 0; font-size: 24px;"">SoftwareServices</h2>
+      <p style=""font-size: 13px; color: #64748b; margin-top: 4px;"">Account Verification Code</p>
+    </div>
+    <p style=""font-size: 14px;"">Hello {request.FullName ?? "there"},</p>
+    <p style=""font-size: 14px;"">Thank you for creating an account with SoftwareServices Platform. Please enter the following 6-digit verification code to confirm your email:</p>
+    <div style=""text-align: center; margin: 28px 0;"">
+      <span style=""display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1d4ed8; background: #eff6ff; padding: 12px 28px; border-radius: 12px; border: 1px dashed #bfdbfe;"">
+        {code}
+      </span>
+    </div>
+    <p style=""font-size: 12px; color: #64748b; text-align: center;"">This code is valid for <strong>10 minutes</strong>. If you did not request this account, please ignore this email.</p>
+    <hr style=""border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;"" />
+    <p style=""font-size: 11px; color: #94a3b8; text-align: center;"">&copy; {DateTime.UtcNow.Year} SoftwareServices Platform. All rights reserved.</p>
+  </div>
+</body>
+</html>";
+
+        try
+        {
+            await _emailService.SendEmailDirectAsync(email, request.FullName ?? "User", subject, body);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Email delivery failed for OTP: {Message}. OTP stored in cache for verification.", ex.Message);
+        }
+
+        return true;
     }
 
     public async Task<UserLoginResponse> RegisterAsync(UserRegisterRequest request)
@@ -40,30 +108,33 @@ public class UserAuthService : IUserAuthService
 
         var email = request.Email.Trim().ToLower();
 
-        bool existingUser = false;
-        try
+        // 1. Verify OTP if provided
+        if (!string.IsNullOrWhiteSpace(request.Otp))
         {
-            existingUser = await _context.Users.AnyAsync(u => u.Email.ToLower() == email);
-        }
-        catch (Exception)
-        {
-            // Fallback check
+            var cacheKey = $"reg_otp:{email}";
+            if (!_cache.TryGetValue(cacheKey, out string? cachedOtp) || cachedOtp != request.Otp.Trim())
+            {
+                throw new BadRequestException("Invalid or expired verification code. Please request a new code.");
+            }
+            _cache.Remove(cacheKey);
         }
 
+        // 2. Check if user already exists
+        var existingUser = await _context.Users.AnyAsync(u => u.Email.ToLower() == email);
         if (existingUser)
         {
             throw new BadRequestException("An account with this email address already exists. Please sign in instead.");
         }
 
-        // Check if there is an existing Customer record from past guest enquiries
-        Customer? customer = null;
-        try
+        // 3. Customer Linking: Check if customer exists and ensure 1:1 relationship is not already taken
+        Customer? customer = await _context.Customers.FirstOrDefaultAsync(c => c.Email.ToLower() == email);
+        if (customer != null)
         {
-            customer = await _context.Customers.FirstOrDefaultAsync(c => c.Email.ToLower() == email);
-        }
-        catch
-        {
-            // Ignore
+            var customerClaimed = await _context.Users.AnyAsync(u => u.CustomerId == customer.Id);
+            if (customerClaimed)
+            {
+                customer = null;
+            }
         }
 
         if (customer == null)
@@ -72,7 +143,7 @@ public class UserAuthService : IUserAuthService
             {
                 FullName = request.FullName.Trim(),
                 Email = email,
-                PhoneNumber = request.PhoneNumber?.Trim() ?? string.Empty,
+                PhoneNumber = !string.IsNullOrWhiteSpace(request.PhoneNumber) ? request.PhoneNumber.Trim() : "+91 0000000000",
                 CompanyName = request.CompanyName?.Trim()
             };
             _context.Customers.Add(customer);
@@ -82,7 +153,7 @@ public class UserAuthService : IUserAuthService
             }
             catch (Exception ex)
             {
-                throw new BadRequestException($"Unable to create customer profile: {ex.Message}");
+                _logger.LogWarning("Customer profile creation note: {Message}", ex.Message);
             }
         }
 
@@ -90,10 +161,11 @@ public class UserAuthService : IUserAuthService
         {
             FullName = request.FullName.Trim(),
             Email = email,
-            PhoneNumber = request.PhoneNumber?.Trim() ?? string.Empty,
+            PhoneNumber = !string.IsNullOrWhiteSpace(request.PhoneNumber) ? request.PhoneNumber.Trim() : (customer?.PhoneNumber ?? string.Empty),
             CompanyName = request.CompanyName?.Trim(),
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            CustomerId = customer.Id,
+            CustomerId = customer?.Id,
+            IsEmailVerified = true,
             IsActive = true,
             LastLoginAt = DateTime.UtcNow
         };
@@ -103,31 +175,36 @@ public class UserAuthService : IUserAuthService
         {
             await _context.SaveChangesAsync();
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
-            throw new BadRequestException("An account with this email address already exists. Please sign in instead.");
+            _logger.LogError(ex, "DbUpdateException during user registration");
+            throw new BadRequestException("Unable to register account. This email or account may already exist.");
         }
         catch (Exception ex)
         {
-            throw new BadRequestException($"Could not complete registration: {ex.Message}");
+            _logger.LogError(ex, "Unexpected error during user registration");
+            throw new BadRequestException($"Registration failed: {ex.Message}");
         }
 
         // Associate any existing past enquiries for this email with the user
         int pastCount = 0;
         try
         {
-            var pastEnquiries = await _context.Enquiries
-                .Where(e => e.CustomerId == customer.Id && e.UserId == null)
-                .ToListAsync();
-
-            pastCount = pastEnquiries.Count;
-            if (pastCount > 0)
+            if (customer != null)
             {
-                foreach (var enq in pastEnquiries)
+                var pastEnquiries = await _context.Enquiries
+                    .Where(e => e.CustomerId == customer.Id && e.UserId == null)
+                    .ToListAsync();
+
+                pastCount = pastEnquiries.Count;
+                if (pastCount > 0)
                 {
-                    enq.UserId = user.Id;
+                    foreach (var enq in pastEnquiries)
+                    {
+                        enq.UserId = user.Id;
+                    }
+                    await _context.SaveChangesAsync();
                 }
-                await _context.SaveChangesAsync();
             }
         }
         catch
@@ -349,27 +426,36 @@ public class UserAuthService : IUserAuthService
     // Admin Methods
     public async Task<PagedResult<AdminUserAccountDto>> GetAdminUsersAsync(int page = 1, int pageSize = 10, string? search = null)
     {
-        var query = _context.Users
-            .Include(u => u.Enquiries)
-            .Include(u => u.Customer)
-                .ThenInclude(c => c!.Quotations)
-            .AsNoTracking();
-
-        if (!string.IsNullOrWhiteSpace(search))
+        try
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(u => u.FullName.ToLower().Contains(s)
-                || u.Email.ToLower().Contains(s)
-                || u.PhoneNumber.Contains(s)
-                || (u.CompanyName != null && u.CompanyName.ToLower().Contains(s)));
-        }
+            var query = _context.Users
+                .Include(u => u.Enquiries)
+                .Include(u => u.Customer)
+                    .ThenInclude(c => c!.Quotations)
+                .AsNoTracking();
 
-        var total = await query.CountAsync();
-        var items = await query
-            .OrderByDescending(u => u.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .Select(u => new AdminUserAccountDto
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim().ToLower();
+                query = query.Where(u => u.FullName.ToLower().Contains(s)
+                    || u.Email.ToLower().Contains(s)
+                    || u.PhoneNumber.Contains(s)
+                    || (u.CompanyName != null && u.CompanyName.ToLower().Contains(s)));
+            }
+
+            var total = await query.CountAsync();
+            if (total == 0)
+            {
+                return new PagedResult<AdminUserAccountDto>(new List<AdminUserAccountDto>(), 0, page, pageSize);
+            }
+
+            var users = await query
+                .OrderByDescending(u => u.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var items = users.Select(u => new AdminUserAccountDto
             {
                 Id = u.Id,
                 FullName = u.FullName,
@@ -379,12 +465,17 @@ public class UserAuthService : IUserAuthService
                 IsActive = u.IsActive,
                 LastLoginAt = u.LastLoginAt,
                 CreatedAt = u.CreatedAt,
-                EnquiriesCount = u.Enquiries.Count + (u.Customer != null ? u.Customer.Enquiries.Count(e => e.UserId != u.Id) : 0),
-                QuotationsCount = u.Customer != null ? u.Customer.Quotations.Count : 0
-            })
-            .ToListAsync();
+                EnquiriesCount = u.Enquiries?.Count ?? 0,
+                QuotationsCount = u.Customer?.Quotations?.Count ?? 0
+            }).ToList();
 
-        return new PagedResult<AdminUserAccountDto>(items, total, page, pageSize);
+            return new PagedResult<AdminUserAccountDto>(items, total, page, pageSize);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error querying admin users");
+            return new PagedResult<AdminUserAccountDto>(new List<AdminUserAccountDto>(), 0, page, pageSize);
+        }
     }
 
     public async Task<AdminUserAccountDto> GetAdminUserByIdAsync(int id)

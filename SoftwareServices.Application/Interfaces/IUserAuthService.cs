@@ -5,6 +5,7 @@ namespace SoftwareServices.Application.Interfaces;
 
 public interface IUserAuthService
 {
+    Task<bool> SendRegistrationOtpAsync(SendRegistrationOtpRequest request);
     Task<UserLoginResponse> RegisterAsync(UserRegisterRequest request);
     Task<UserLoginResponse> LoginAsync(UserLoginRequest request);
     Task<UserProfileDto> GetProfileAsync(int userId);
