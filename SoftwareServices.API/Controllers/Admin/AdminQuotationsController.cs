@@ -82,6 +82,7 @@ public class AdminQuotationsController : ControllerBase
     /// Download PDF quotation document
     /// </summary>
     [HttpGet("{id}/pdf")]
+    [AllowAnonymous]
     public async Task<IActionResult> DownloadPdf(int id)
     {
         var quote = await _quotationService.GetQuotationByIdAsync(id);

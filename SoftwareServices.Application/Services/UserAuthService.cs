@@ -186,30 +186,35 @@ public class UserAuthService : IUserAuthService
             throw new BadRequestException($"Registration failed: {ex.Message}");
         }
 
-        // Associate any existing past enquiries for this email with the user
+        // Associate any existing past enquiries for this email with the newly registered user
         int pastCount = 0;
         try
         {
-            if (customer != null)
-            {
-                var pastEnquiries = await _context.Enquiries
-                    .Where(e => e.CustomerId == customer.Id && e.UserId == null)
-                    .ToListAsync();
+            var pastEnquiries = await _context.Enquiries
+                .Include(e => e.Customer)
+                .Where(e => e.UserId == null && (
+                    (customer != null && e.CustomerId == customer.Id) ||
+                    (e.Customer != null && e.Customer.Email.ToLower() == email)
+                ))
+                .ToListAsync();
 
-                pastCount = pastEnquiries.Count;
-                if (pastCount > 0)
+            pastCount = pastEnquiries.Count;
+            if (pastCount > 0)
+            {
+                foreach (var enq in pastEnquiries)
                 {
-                    foreach (var enq in pastEnquiries)
+                    enq.UserId = user.Id;
+                    if (customer != null && enq.CustomerId != customer.Id)
                     {
-                        enq.UserId = user.Id;
+                        enq.CustomerId = customer.Id;
                     }
-                    await _context.SaveChangesAsync();
                 }
+                await _context.SaveChangesAsync();
             }
         }
-        catch
+        catch (Exception linkEx)
         {
-            // Do not fail registration if linking old enquiries fails
+            _logger.LogWarning("Notice while associating past enquiries during registration: {Message}", linkEx.Message);
         }
 
         int timeoutMinutes = 60;
@@ -335,8 +340,13 @@ public class UserAuthService : IUserAuthService
         if (user == null)
             throw new NotFoundException("User account not found.");
 
+        var cleanEmail = user.Email.Trim().ToLower();
+
         var enquiriesQuery = _context.Enquiries
-            .Where(e => e.UserId == user.Id || (user.CustomerId.HasValue && e.CustomerId == user.CustomerId.Value));
+            .Include(e => e.Customer)
+            .Where(e => e.UserId == user.Id ||
+                        (user.CustomerId.HasValue && e.CustomerId == user.CustomerId.Value) ||
+                        (e.Customer != null && e.Customer.Email.ToLower() == cleanEmail));
 
         var totalEnquiries = await enquiriesQuery.CountAsync();
         var activeQuotations = await _context.Quotations
@@ -368,11 +378,31 @@ public class UserAuthService : IUserAuthService
         if (user == null)
             throw new NotFoundException("User account not found.");
 
+        var cleanEmail = user.Email.Trim().ToLower();
+
         var enquiries = await _context.Enquiries
             .Include(e => e.Quotations)
-            .Where(e => e.UserId == user.Id || (user.CustomerId.HasValue && e.CustomerId == user.CustomerId.Value))
+            .Include(e => e.Customer)
+            .Where(e => e.UserId == user.Id ||
+                        (user.CustomerId.HasValue && e.CustomerId == user.CustomerId.Value) ||
+                        (e.Customer != null && e.Customer.Email.ToLower() == cleanEmail))
             .OrderByDescending(e => e.CreatedAt)
             .ToListAsync();
+
+        // Auto-link any guest enquiries matching by email
+        bool needSave = false;
+        foreach (var enq in enquiries)
+        {
+            if (enq.UserId == null)
+            {
+                enq.UserId = user.Id;
+                needSave = true;
+            }
+        }
+        if (needSave)
+        {
+            try { await _context.SaveChangesAsync(); } catch { }
+        }
 
         return enquiries.Select(e =>
         {
