@@ -88,6 +88,7 @@ public class QuotationDto
 public class PublicQuotationDto
 {
     public string QuotationNumber { get; set; } = string.Empty;
+    public string SecureToken { get; set; } = string.Empty;
     public string CustomerName { get; set; } = string.Empty;
     public string? CompanyName { get; set; }
     public string ServiceDescription { get; set; } = string.Empty;

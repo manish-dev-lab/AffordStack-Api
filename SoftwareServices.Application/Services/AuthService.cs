@@ -10,11 +10,16 @@ public class AuthService : IAuthService
 {
     private readonly IApplicationDbContext _context;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IConfigurationService _configurationService;
 
-    public AuthService(IApplicationDbContext context, IJwtTokenService jwtTokenService)
+    public AuthService(
+        IApplicationDbContext context,
+        IJwtTokenService jwtTokenService,
+        IConfigurationService configurationService)
     {
         _context = context;
         _jwtTokenService = jwtTokenService;
+        _configurationService = configurationService;
     }
 
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
@@ -37,12 +42,16 @@ public class AuthService : IAuthService
         user.LastLoginAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        var token = _jwtTokenService.GenerateToken(user);
+        var tokenConfig = await _configurationService.GetTokenConfigAsync();
+        var token = _jwtTokenService.GenerateToken(user, tokenConfig.TokenTimeoutMinutes);
+        var expiresAt = tokenConfig.TokenTimeoutMinutes > 0
+            ? DateTime.UtcNow.AddMinutes(tokenConfig.TokenTimeoutMinutes)
+            : DateTime.UtcNow.AddDays(7);
 
         return new LoginResponse
         {
             Token = token,
-            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            ExpiresAt = expiresAt,
             User = new AdminUserDto
             {
                 Id = user.Id,

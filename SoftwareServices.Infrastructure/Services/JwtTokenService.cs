@@ -17,12 +17,15 @@ public class JwtTokenService : IJwtTokenService
         _configuration = configuration;
     }
 
-    public string GenerateToken(AdminUser user)
+    public string GenerateToken(AdminUser user, int timeoutMinutes = 0)
     {
-        var secret = _configuration["Jwt:Secret"] ?? "SoftwareServices_SuperSecret_Jwt_Key_2026_Minimum_32_Chars_Long!!";
+        var secret = _configuration["Jwt:Secret"] ?? "SoftwareServices_SuperSecret_Jwt_Security_Key_2026_Minimum_32_Chars_Long!!";
         var issuer = _configuration["Jwt:Issuer"] ?? "SoftwareServicesPlatform";
         var audience = _configuration["Jwt:Audience"] ?? "SoftwareServicesPlatformUsers";
-        var expiryDays = int.TryParse(_configuration["Jwt:ExpiryDays"], out var days) ? days : 7;
+        
+        DateTime expiresAt = timeoutMinutes > 0
+            ? DateTime.UtcNow.AddMinutes(timeoutMinutes)
+            : DateTime.UtcNow.AddDays(int.TryParse(_configuration["Jwt:ExpiryDays"], out var days) ? days : 7);
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -33,14 +36,54 @@ public class JwtTokenService : IJwtTokenService
             new(ClaimTypes.Name, user.Username),
             new(ClaimTypes.Email, user.Email),
             new(ClaimTypes.GivenName, user.FullName),
-            new(ClaimTypes.Role, user.Role.ToString())
+            new(ClaimTypes.Role, user.Role.ToString()),
+            new("user_type", "admin")
         };
 
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddDays(expiryDays),
+            expires: expiresAt,
+            signingCredentials: creds
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public string GenerateUserToken(User user, int timeoutMinutes = 0)
+    {
+        var secret = _configuration["Jwt:Secret"] ?? "SoftwareServices_SuperSecret_Jwt_Security_Key_2026_Minimum_32_Chars_Long!!";
+        var issuer = _configuration["Jwt:Issuer"] ?? "SoftwareServicesPlatform";
+        var audience = _configuration["Jwt:Audience"] ?? "SoftwareServicesPlatformUsers";
+
+        DateTime expiresAt = timeoutMinutes > 0
+            ? DateTime.UtcNow.AddMinutes(timeoutMinutes)
+            : DateTime.UtcNow.AddDays(int.TryParse(_configuration["Jwt:ExpiryDays"], out var days) ? days : 7);
+
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
+        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.FullName),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.MobilePhone, user.PhoneNumber),
+            new(ClaimTypes.Role, "Customer"),
+            new("user_type", "customer")
+        };
+
+        if (user.CustomerId.HasValue)
+        {
+            claims.Add(new Claim("customer_id", user.CustomerId.Value.ToString()));
+        }
+
+        var token = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: claims,
+            expires: expiresAt,
             signingCredentials: creds
         );
 

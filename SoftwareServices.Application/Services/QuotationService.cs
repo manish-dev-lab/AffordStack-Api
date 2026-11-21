@@ -275,6 +275,7 @@ public class QuotationService : IQuotationService
         return new PublicQuotationDto
         {
             QuotationNumber = quotation.QuotationNumber,
+            SecureToken = quotation.SecureToken,
             CustomerName = quotation.Customer!.FullName,
             CompanyName = quotation.Customer.CompanyName,
             ServiceDescription = quotation.ServiceDescription,

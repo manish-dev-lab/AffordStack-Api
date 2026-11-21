@@ -29,6 +29,7 @@ public interface IEnquiryService
     Task<bool> UpdateStatusAsync(int id, UpdateEnquiryStatusRequest request, int? adminUserId = null);
     Task<EnquiryNoteDto> AddNoteAsync(int id, AddEnquiryNoteRequest request, int? adminUserId = null);
     Task<bool> DeleteEnquiryAsync(int id);
+    Task<EnquiryTrackingDto> TrackEnquiryAsync(TrackEnquiryRequest request);
 }
 
 public interface IQuotationService

@@ -519,6 +519,61 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
                 await context.SaveChangesAsync();
             }
 
+            // 7. Seed App Configurations (Dynamic JSON configurations)
+            if (!await context.AppConfigurations.AnyAsync())
+            {
+                logger.LogInformation("Seeding App Configurations (JSON key-value settings)...");
+
+                var appConfigs = new List<AppConfiguration>
+                {
+                    new()
+                    {
+                        ConfigKey = "TokenConfig",
+                        ConfigValue = JsonSerializer.Serialize(new
+                        {
+                            TokenTimeoutMinutes = 60,
+                            RefreshTokenDays = 7
+                        }, new JsonSerializerOptions { WriteIndented = true }),
+                        Description = "JWT session authentication timeout and refresh token lifespan"
+                    },
+                    new()
+                    {
+                        ConfigKey = "EmailConfig",
+                        ConfigValue = JsonSerializer.Serialize(new
+                        {
+                            EmailsEnabled = true,
+                            SendCustomerNotifications = true,
+                            SendAdminNotifications = true,
+                            SmtpHost = "smtp.gmail.com",
+                            SmtpPort = 587,
+                            Username = "softwareservices2001@gmail.com",
+                            Password = "niywncoibgfffxbd",
+                            FromEmail = "softwareservices2001@gmail.com",
+                            FromName = "Software Services",
+                            AdminNotificationEmail = "softwareservices2001@gmail.com",
+                            EnableSsl = true
+                        }, new JsonSerializerOptions { WriteIndented = true }),
+                        Description = "Master email notifications switch, notification controls, and SMTP credentials"
+                    },
+                    new()
+                    {
+                        ConfigKey = "WebsiteConfig",
+                        ConfigValue = JsonSerializer.Serialize(new
+                        {
+                            SiteName = "Software Services Platform",
+                            SupportEmail = "manishkiran8464@gmail.com",
+                            SupportPhone = "+91 8464992957",
+                            ContactAddress = "Rc puram Hyd",
+                            MaintenanceMode = false
+                        }, new JsonSerializerOptions { WriteIndented = true }),
+                        Description = "General platform branding, support contact channels, and maintenance mode toggle"
+                    }
+                };
+
+                context.AppConfigurations.AddRange(appConfigs);
+                await context.SaveChangesAsync();
+            }
+
             logger.LogInformation("Database seed verification completed.");
         }
         catch (Exception ex)

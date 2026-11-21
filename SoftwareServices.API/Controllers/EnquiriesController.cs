@@ -54,4 +54,14 @@ public class EnquiriesController : ControllerBase
         var result = await _enquiryService.SubmitEnquiryAsync(request, null);
         return Ok(ApiResponse<EnquiryResponseDto>.Ok(result, "Enquiry submitted successfully."));
     }
+
+    /// <summary>
+    /// Track live enquiry lifecycle and quotation status (Public, no login required)
+    /// </summary>
+    [HttpPost("track")]
+    public async Task<ActionResult<ApiResponse<EnquiryTrackingDto>>> TrackEnquiry([FromBody] TrackEnquiryRequest request)
+    {
+        var result = await _enquiryService.TrackEnquiryAsync(request);
+        return Ok(ApiResponse<EnquiryTrackingDto>.Ok(result, "Enquiry tracking details retrieved."));
+    }
 }
