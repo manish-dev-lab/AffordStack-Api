@@ -79,6 +79,26 @@ public class UserAuthController : ControllerBase
     }
 
     /// <summary>
+    /// Send OTP email verification code for password reset
+    /// </summary>
+    [HttpPost("forgot-password")]
+    public async Task<ActionResult<ApiResponse<bool>>> ForgotPassword([FromBody] UserForgotPasswordRequest request)
+    {
+        var result = await _userAuthService.ForgotPasswordAsync(request);
+        return Ok(ApiResponse<bool>.Ok(result, "A 6-digit password reset verification code has been dispatched to your email."));
+    }
+
+    /// <summary>
+    /// Reset user password using OTP verification code
+    /// </summary>
+    [HttpPost("reset-password")]
+    public async Task<ActionResult<ApiResponse<bool>>> ResetPassword([FromBody] UserResetPasswordRequest request)
+    {
+        var result = await _userAuthService.ResetPasswordAsync(request);
+        return Ok(ApiResponse<bool>.Ok(result, "Your password has been successfully reset. You may now sign in."));
+    }
+
+    /// <summary>
     /// Change user password
     /// </summary>
     [Authorize]

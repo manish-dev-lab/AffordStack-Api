@@ -125,4 +125,12 @@ public class EnquiryTrackingDto
     public DateTime? UpdatedAt { get; set; }
 
     public PublicQuotationDto? ActiveQuotation { get; set; }
+
+    // Linked project details if available
+    public int? ProjectId { get; set; }
+    public string? ProjectNumber { get; set; }
+    public ProjectStatus? ProjectStatus { get; set; }
+    public int? ProgressPercentage { get; set; }
+    public DateTime? ExpectedCompletionDate { get; set; }
+    public List<SoftwareServices.Application.DTOs.Project.ProjectMilestoneDto> Milestones { get; set; } = new();
 }

@@ -64,6 +64,26 @@ public class UserEnquirySummaryDto
     public string? QuotationSecureToken { get; set; }
     public decimal? QuotationAmount { get; set; }
     public QuotationStatus? QuotationStatus { get; set; }
+
+    // Linked project details if available
+    public int? ProjectId { get; set; }
+    public string? ProjectNumber { get; set; }
+    public ProjectStatus? ProjectStatus { get; set; }
+    public int? ProgressPercentage { get; set; }
+    public DateTime? ExpectedCompletionDate { get; set; }
+    public List<SoftwareServices.Application.DTOs.Project.ProjectMilestoneDto> Milestones { get; set; } = new();
+}
+
+public class UserForgotPasswordRequest
+{
+    public string Email { get; set; } = string.Empty;
+}
+
+public class UserResetPasswordRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string Otp { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }
 
 public class UserChangePasswordRequest

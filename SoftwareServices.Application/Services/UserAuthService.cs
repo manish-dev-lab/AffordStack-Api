@@ -382,6 +382,8 @@ public class UserAuthService : IUserAuthService
 
         var enquiries = await _context.Enquiries
             .Include(e => e.Quotations)
+                .ThenInclude(q => q.Project)
+                    .ThenInclude(p => p!.Milestones)
             .Include(e => e.Customer)
             .Where(e => e.UserId == user.Id ||
                         (user.CustomerId.HasValue && e.CustomerId == user.CustomerId.Value) ||
@@ -409,6 +411,7 @@ public class UserAuthService : IUserAuthService
             var activeQuote = e.Quotations
                 .OrderByDescending(q => q.CreatedAt)
                 .FirstOrDefault();
+            var project = activeQuote?.Project;
 
             return new UserEnquirySummaryDto
             {
@@ -433,7 +436,23 @@ public class UserAuthService : IUserAuthService
                 QuotationNumber = activeQuote?.QuotationNumber,
                 QuotationSecureToken = activeQuote?.SecureToken,
                 QuotationAmount = activeQuote?.TotalAmount,
-                QuotationStatus = activeQuote?.Status
+                QuotationStatus = activeQuote?.Status,
+
+                ProjectId = project?.Id,
+                ProjectNumber = project?.ProjectNumber,
+                ProjectStatus = project?.Status,
+                ProgressPercentage = project?.ProgressPercentage,
+                ExpectedCompletionDate = project?.ExpectedCompletionDate,
+                Milestones = project?.Milestones.OrderBy(m => m.DueDate).Select(m => new SoftwareServices.Application.DTOs.Project.ProjectMilestoneDto
+                {
+                    Id = m.Id,
+                    Title = m.Title,
+                    Description = m.Description,
+                    DueDate = m.DueDate,
+                    IsCompleted = m.IsCompleted,
+                    CompletedAt = m.CompletedAt,
+                    Amount = m.Amount
+                }).ToList() ?? new()
             };
         }).ToList();
     }
@@ -450,6 +469,88 @@ public class UserAuthService : IUserAuthService
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         user.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ForgotPasswordAsync(UserForgotPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new BadRequestException("Please enter your registered email address.");
+
+        var cleanEmail = request.Email.Trim().ToLowerInvariant();
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == cleanEmail);
+        if (user == null)
+            throw new NotFoundException("No account registered with this email address was found. Please check your spelling or sign up.");
+
+        if (!user.IsActive)
+            throw new BadRequestException("This account is currently deactivated. Please contact administrator support.");
+
+        var code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
+        var cacheKey = $"pwd_reset_otp:{cleanEmail}";
+        _cache.Set(cacheKey, code, TimeSpan.FromMinutes(10));
+
+        var subject = $"SoftwareServices - Password Reset Code: {code}";
+        var body = $@"
+<!DOCTYPE html>
+<html>
+<body style=""font-family: Arial, sans-serif; background-color: #f8fafc; padding: 20px; color: #1e293b;"">
+  <div style=""max-width: 500px; margin: auto; background: #ffffff; border-radius: 16px; padding: 32px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);"">
+    <div style=""text-align: center; margin-bottom: 24px;"">
+      <h2 style=""color: #2563eb; margin: 0; font-size: 24px;"">SoftwareServices</h2>
+      <p style=""font-size: 13px; color: #64748b; margin-top: 4px;"">Password Reset Request</p>
+    </div>
+    <p style=""font-size: 14px;"">Hello {user.FullName},</p>
+    <p style=""font-size: 14px;"">We received a request to reset the password for your SoftwareServices client account. Please enter the following 6-digit verification code to create your new password:</p>
+    <div style=""text-align: center; margin: 28px 0;"">
+      <span style=""display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #dc2626; background: #fef2f2; padding: 12px 28px; border-radius: 12px; border: 1px dashed #fca5a5;"">
+        {code}
+      </span>
+    </div>
+    <p style=""font-size: 12px; color: #64748b; text-align: center;"">This code will expire in <strong>10 minutes</strong>. If you did not request a password reset, you can safely ignore this email — your account remains secure.</p>
+    <hr style=""border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;"" />
+    <p style=""font-size: 11px; color: #94a3b8; text-align: center;"">&copy; {DateTime.UtcNow.Year} SoftwareServices Platform. All rights reserved.</p>
+  </div>
+</body>
+</html>";
+
+        try
+        {
+            await _emailService.SendEmailDirectAsync(cleanEmail, user.FullName, subject, body);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning("Email delivery failed for password reset OTP: {Message}", ex.Message);
+        }
+
+        return true;
+    }
+
+    public async Task<bool> ResetPasswordAsync(UserResetPasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Email))
+            throw new BadRequestException("Email address is required.");
+
+        if (string.IsNullOrWhiteSpace(request.Otp))
+            throw new BadRequestException("Verification code is required.");
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6)
+            throw new BadRequestException("New password must be at least 6 characters long.");
+
+        var cleanEmail = request.Email.Trim().ToLowerInvariant();
+        var cacheKey = $"pwd_reset_otp:{cleanEmail}";
+
+        if (!_cache.TryGetValue(cacheKey, out string? cachedOtp) || cachedOtp != request.Otp.Trim())
+            throw new BadRequestException("Invalid or expired verification code. Please request a new code.");
+
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == cleanEmail);
+        if (user == null)
+            throw new NotFoundException("User account not found.");
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+        _cache.Remove(cacheKey);
+
         return true;
     }
 

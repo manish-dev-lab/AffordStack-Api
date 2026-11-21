@@ -324,6 +324,12 @@ public class QuotationService : IQuotationService
         quotation.ResponseRemarks = request.Remarks?.Trim();
         quotation.UpdatedAt = DateTime.UtcNow;
 
+        if (quotation.Enquiry != null)
+        {
+            quotation.Enquiry.Status = EnquiryStatus.Converted;
+            quotation.Enquiry.UpdatedAt = DateTime.UtcNow;
+        }
+
         quotation.StatusHistory.Add(new QuotationStatusHistory
         {
             QuotationId = quotation.Id,

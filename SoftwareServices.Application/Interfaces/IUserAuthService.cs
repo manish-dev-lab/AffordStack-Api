@@ -11,6 +11,8 @@ public interface IUserAuthService
     Task<UserProfileDto> GetProfileAsync(int userId);
     Task<List<UserEnquirySummaryDto>> GetUserEnquiriesAsync(int userId);
     Task<bool> ChangePasswordAsync(int userId, UserChangePasswordRequest request);
+    Task<bool> ForgotPasswordAsync(UserForgotPasswordRequest request);
+    Task<bool> ResetPasswordAsync(UserResetPasswordRequest request);
 
     // Admin methods
     Task<PagedResult<AdminUserAccountDto>> GetAdminUsersAsync(int page = 1, int pageSize = 10, string? search = null);

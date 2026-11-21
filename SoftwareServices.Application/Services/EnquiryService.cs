@@ -440,6 +440,15 @@ public class EnquiryService : IEnquiryService
             };
         }
 
+        Project? project = null;
+        if (activeQuote != null)
+        {
+            project = await _context.Projects
+                .Include(p => p.Milestones)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.QuotationId == activeQuote.Id);
+        }
+
         return new EnquiryTrackingDto
         {
             Id = enquiry.Id,
@@ -459,7 +468,22 @@ public class EnquiryService : IEnquiryService
             StepIndex = step,
             CreatedAt = enquiry.CreatedAt,
             UpdatedAt = enquiry.UpdatedAt,
-            ActiveQuotation = activeQuoteDto
+            ActiveQuotation = activeQuoteDto,
+            ProjectId = project?.Id,
+            ProjectNumber = project?.ProjectNumber,
+            ProjectStatus = project?.Status,
+            ProgressPercentage = project?.ProgressPercentage,
+            ExpectedCompletionDate = project?.ExpectedCompletionDate ?? activeQuote?.ExpectedDeliveryDate,
+            Milestones = project?.Milestones.OrderBy(m => m.DueDate).Select(m => new SoftwareServices.Application.DTOs.Project.ProjectMilestoneDto
+            {
+                Id = m.Id,
+                Title = m.Title,
+                Description = m.Description,
+                DueDate = m.DueDate,
+                IsCompleted = m.IsCompleted,
+                CompletedAt = m.CompletedAt,
+                Amount = m.Amount
+            }).ToList() ?? new()
         };
     }
 }
