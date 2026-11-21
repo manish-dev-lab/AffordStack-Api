@@ -193,15 +193,13 @@ using (var scope = app.Services.CreateScope())
 // 10. HTTP Pipeline
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-if (app.Environment.IsDevelopment())
+// Always enable Swagger documentation and UI so it works across environments and debugging sessions
+app.UseSwagger();
+app.UseSwaggerUI(c =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Software Services Platform API v1");
-        c.RoutePrefix = "swagger";
-    });
-}
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Software Services Platform API v1");
+    c.RoutePrefix = "swagger";
+});
 
 app.UseRouting();
 
@@ -212,10 +210,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Redirect root URL to Swagger in Development
-if (app.Environment.IsDevelopment())
-{
-    app.MapGet("/", () => Results.Redirect("/swagger"));
-}
+// Automatically redirect root URL "/" to Swagger UI in browser
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();
