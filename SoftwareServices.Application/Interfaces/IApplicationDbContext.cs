@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using SoftwareServices.Domain.Entities;
 
 namespace SoftwareServices.Application.Interfaces;
@@ -26,5 +27,6 @@ public interface IApplicationDbContext
     DbSet<EmailOutbox> EmailOutbox { get; }
     DbSet<EmailLog> EmailLogs { get; }
 
+    EntityEntry<TEntity> Entry<TEntity>(TEntity entity) where TEntity : class;
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
