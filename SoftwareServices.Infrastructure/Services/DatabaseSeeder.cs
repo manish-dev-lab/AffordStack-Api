@@ -68,7 +68,7 @@ END $$;
                 defaultAdmin = new AdminUser
                 {
                     Username = "admin",
-                    Email = "admin@softwareservices.com",
+                    Email = "admin@affordstack.com",
                     FullName = "System Administrator",
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@123456"),
                     Role = AdminRole.SuperAdmin,
@@ -554,7 +554,7 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
 
                 var settings = new List<WebsiteSetting>
                 {
-                    new() { SettingKey = "Company:Name", SettingValue = "Soft Solutions", SettingGroup = "General", Description = "Official trading company name" },
+                    new() { SettingKey = "Company:Name", SettingValue = "AffordStack", SettingGroup = "General", Description = "Official trading company name" },
                     new() { SettingKey = "Company:Email", SettingValue = "manishkiran8464@gmail.com", SettingGroup = "Contact", Description = "Primary inquiry and support email" },
                     new() { SettingKey = "Company:Phone", SettingValue = "+91 8464992957", SettingGroup = "Contact", Description = "Primary phone number" },
                     new() { SettingKey = "Company:WhatsApp", SettingValue = "+91 8464992957", SettingGroup = "Contact", Description = "WhatsApp support number" },
@@ -604,7 +604,7 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
                                 Username = "softwareservices2001@gmail.com",
                                 Password = "niywncoibgfffxbd",
                                 FromEmail = "softwareservices2001@gmail.com",
-                                FromName = "Software Services",
+                                FromName = "AffordStack",
                                 AdminNotificationEmail = "softwareservices2001@gmail.com",
                                 EnableSsl = true
                             }, new JsonSerializerOptions { WriteIndented = true }),
@@ -615,7 +615,7 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
                             ConfigKey = "WebsiteConfig",
                             ConfigValue = JsonSerializer.Serialize(new
                             {
-                                SiteName = "Software Services Platform",
+                                SiteName = "AffordStack Platform",
                                 SupportEmail = "manishkiran8464@gmail.com",
                                 SupportPhone = "+91 8464992957",
                                 ContactAddress = "Rc puram Hyd",
