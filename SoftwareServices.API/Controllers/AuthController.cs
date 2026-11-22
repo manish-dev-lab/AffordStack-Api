@@ -21,6 +21,7 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Authenticate administrator and receive JWT token
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<ApiResponse<LoginResponse>>> Login([FromBody] LoginRequest request)
     {
@@ -31,10 +32,14 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Change administrator password
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "AdminOnly")]
     [HttpPost("change-password")]
     public async Task<ActionResult<ApiResponse<bool>>> ChangePassword([FromBody] ChangePasswordRequest request)
     {
+        var userType = User.FindFirstValue("user_type");
+        if (userType != "admin")
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<bool>.Fail("Access denied. Administrator privileges required."));
+
         var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(userIdStr, out var userId))
             return Unauthorized(ApiResponse<bool>.Fail("Unauthorized access."));
@@ -46,10 +51,14 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Get logged in administrator profile
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "AdminOnly")]
     [HttpGet("profile")]
     public async Task<ActionResult<ApiResponse<AdminUserDto>>> GetProfile()
     {
+        var userType = User.FindFirstValue("user_type");
+        if (userType != "admin")
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<AdminUserDto>.Fail("Access denied. Administrator privileges required."));
+
         var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(userIdStr, out var userId))
             return Unauthorized(ApiResponse<AdminUserDto>.Fail("Unauthorized access."));

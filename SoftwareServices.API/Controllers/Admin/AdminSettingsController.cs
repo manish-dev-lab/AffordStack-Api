@@ -7,7 +7,7 @@ using SoftwareServices.Application.Interfaces;
 
 namespace SoftwareServices.API.Controllers.Admin;
 
-[Authorize]
+[Authorize(Policy = "AdminOnly")]
 [ApiController]
 [Route("api/admin/settings")]
 public class AdminSettingsController : ControllerBase
