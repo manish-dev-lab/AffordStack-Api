@@ -16,14 +16,14 @@ public class EmailConfigDto
     public string Username { get; set; } = "softwareservices2001@gmail.com";
     public string Password { get; set; } = "niywncoibgfffxbd";
     public string FromEmail { get; set; } = "softwareservices2001@gmail.com";
-    public string FromName { get; set; } = "Software Services";
+    public string FromName { get; set; } = "AffordStack";
     public string AdminNotificationEmail { get; set; } = "softwareservices2001@gmail.com";
     public bool EnableSsl { get; set; } = true;
 }
 
 public class WebsiteConfigDto
 {
-    public string SiteName { get; set; } = "Software Services Platform";
+    public string SiteName { get; set; } = "AffordStack Platform";
     public string SupportEmail { get; set; } = "manishkiran8464@gmail.com";
     public string SupportPhone { get; set; } = "+91 8464992957";
     public string ContactAddress { get; set; } = "Rc puram Hyd";

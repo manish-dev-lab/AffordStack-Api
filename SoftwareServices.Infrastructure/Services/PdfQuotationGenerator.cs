@@ -21,7 +21,7 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
     {
         var businessName = companySettings?.GetValueOrDefault("Company:Name")
             ?? _configuration["Company:Name"]
-            ?? "Soft Solutions";
+            ?? "AffordStack";
 
         var businessEmail = companySettings?.GetValueOrDefault("Company:Email")
             ?? _configuration["Company:Email"]
@@ -64,7 +64,7 @@ public class PdfQuotationGenerator : IPdfQuotationGenerator
                         row.RelativeItem().Column(c =>
                         {
                             c.Item().Text(businessName).FontSize(20).Bold().FontColor(Colors.Blue.Darken3);
-                            c.Item().Text("Software Development & Technical Consulting").FontSize(10).FontColor(Colors.Grey.Medium);
+                            c.Item().Text("Low-Cost Custom Software & Technical Consulting").FontSize(10).FontColor(Colors.Grey.Medium);
                             c.Item().Text($"{businessAddress} | {businessEmail} | {businessPhone}").FontSize(8).FontColor(Colors.Grey.Medium);
                         });
 

@@ -53,8 +53,8 @@ builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 
 // 5. JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "SoftwareServices_SuperSecret_Jwt_Security_Key_2026_Minimum_32_Chars_Long!!";
-var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "SoftwareServicesPlatform";
-var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "SoftwareServicesPlatformUsers";
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "AffordStackPlatform";
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "AffordStackPlatformUsers";
 
 builder.Services.AddAuthentication(options =>
 {
@@ -132,9 +132,9 @@ builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "Software Services Platform API",
+        Title = "AffordStack Platform API",
         Version = "v1",
-        Description = "Production-grade REST API backend for Software Services Business Platform (.NET 10 LTS + PostgreSQL)"
+        Description = "Production-grade REST API backend for AffordStack Low-Cost Custom Software Platform (.NET 10 LTS + PostgreSQL)"
     });
 
     // JWT Bearer Security Definition
@@ -216,7 +216,7 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "Software Services Platform API v1");
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "AffordStack Platform API v1");
     c.RoutePrefix = "swagger";
 });
 

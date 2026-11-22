@@ -20,8 +20,8 @@ public class JwtTokenService : IJwtTokenService
     public string GenerateToken(AdminUser user, int timeoutMinutes = 0)
     {
         var secret = _configuration["Jwt:Secret"] ?? "SoftwareServices_SuperSecret_Jwt_Security_Key_2026_Minimum_32_Chars_Long!!";
-        var issuer = _configuration["Jwt:Issuer"] ?? "SoftwareServicesPlatform";
-        var audience = _configuration["Jwt:Audience"] ?? "SoftwareServicesPlatformUsers";
+        var issuer = _configuration["Jwt:Issuer"] ?? "AffordStackPlatform";
+        var audience = _configuration["Jwt:Audience"] ?? "AffordStackPlatformUsers";
         
         DateTime expiresAt = timeoutMinutes > 0
             ? DateTime.UtcNow.AddMinutes(timeoutMinutes)
@@ -54,8 +54,8 @@ public class JwtTokenService : IJwtTokenService
     public string GenerateUserToken(User user, int timeoutMinutes = 0)
     {
         var secret = _configuration["Jwt:Secret"] ?? "SoftwareServices_SuperSecret_Jwt_Security_Key_2026_Minimum_32_Chars_Long!!";
-        var issuer = _configuration["Jwt:Issuer"] ?? "SoftwareServicesPlatform";
-        var audience = _configuration["Jwt:Audience"] ?? "SoftwareServicesPlatformUsers";
+        var issuer = _configuration["Jwt:Issuer"] ?? "AffordStackPlatform";
+        var audience = _configuration["Jwt:Audience"] ?? "AffordStackPlatformUsers";
 
         DateTime expiresAt = timeoutMinutes > 0
             ? DateTime.UtcNow.AddMinutes(timeoutMinutes)

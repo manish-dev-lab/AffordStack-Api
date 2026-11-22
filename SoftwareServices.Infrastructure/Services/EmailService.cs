@@ -56,7 +56,7 @@ public class EmailService : IEmailService
         var username = _configuration["Smtp:Username"];
         var password = _configuration["Smtp:Password"];
         var fromEmail = _configuration["Smtp:FromEmail"] ?? "noreply@example.com";
-        var fromName = _configuration["Smtp:FromName"] ?? "Software Services";
+        var fromName = _configuration["Smtp:FromName"] ?? "AffordStack";
 
         // Check if DB configuration overrides SMTP settings or disables email
         try
@@ -185,7 +185,7 @@ public class EmailService : IEmailService
 
             var name = settings.GetValueOrDefault("Company:Name")
                 ?? _configuration["Company:Name"]
-                ?? "Software Services";
+                ?? "AffordStack";
 
             var email = settings.GetValueOrDefault("Company:Email")
                 ?? _configuration["Company:Email"]
@@ -207,7 +207,7 @@ public class EmailService : IEmailService
         catch
         {
             return (
-                _configuration["Company:Name"] ?? "Software Services",
+                _configuration["Company:Name"] ?? "AffordStack",
                 _configuration["Company:Email"] ?? "manishkiran8464@gmail.com",
                 _configuration["Company:Phone"] ?? "+91 8464992957",
                 _configuration["Company:Address"] ?? "Hyderabad"

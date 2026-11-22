@@ -37,7 +37,7 @@ public class UserAuthController : ControllerBase
     public async Task<ActionResult<ApiResponse<UserLoginResponse>>> Register([FromBody] UserRegisterRequest request)
     {
         var result = await _userAuthService.RegisterAsync(request);
-        return Ok(ApiResponse<UserLoginResponse>.Ok(result, "Account created successfully. Welcome to Software Services Platform!"));
+        return Ok(ApiResponse<UserLoginResponse>.Ok(result, "Account created successfully. Welcome to AffordStack Platform!"));
     }
 
     /// <summary>
