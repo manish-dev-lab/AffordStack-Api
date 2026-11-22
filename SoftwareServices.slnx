@@ -1,6 +1,0 @@
-<Solution>
-  <Project Path="SoftwareServices.API/SoftwareServices.API.csproj" />
-  <Project Path="SoftwareServices.Application/SoftwareServices.Application.csproj" />
-  <Project Path="SoftwareServices.Domain/SoftwareServices.Domain.csproj" />
-  <Project Path="SoftwareServices.Infrastructure/SoftwareServices.Infrastructure.csproj" />
-</Solution>

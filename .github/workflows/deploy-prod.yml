@@ -1,0 +1,29 @@
+name: Deploy Production Backend to Raspberry Pi
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy-prod:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Build & Update Production Backend Container
+        run: |
+          docker build -t affordstack-prod-backend:latest .
+          docker stop affordstack-prod-backend || true
+          docker rm affordstack-prod-backend || true
+          docker run -d \
+            --name affordstack-prod-backend \
+            --network-alias backend-prod \
+            --restart always \
+            --network app-network \
+            -e ConnectionStrings__DefaultConnection="Host=postgres_db;Port=5432;Database=affordstack_prod_db;Username=devuser;Password=devpassword123;Include Error Detail=false" \
+            -e ASPNETCORE_ENVIRONMENT="Production" \
+            affordstack-prod-backend:latest
+          docker image prune -f
