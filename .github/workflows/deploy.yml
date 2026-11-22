@@ -15,13 +15,14 @@ jobs:
 
       - name: Build & Update Backend Container
         run: |
-          docker build -t softwareservices-backend:latest .
-          docker stop backend || true
-          docker rm backend || true
+          docker build -t affordstack-backend:latest .
+          docker stop affordstack-backend backend || true
+          docker rm affordstack-backend backend || true
           docker run -d \
-            --name backend \
+            --name affordstack-backend \
+            --network-alias backend \
             --restart always \
             --network app-network \
-            -e ConnectionStrings__DefaultConnection="Host=postgres_db;Port=5432;Database=software_services_db;Username=devuser;Password=devpassword123;Include Error Detail=true" \
-            softwareservices-backend:latest
+            -e ConnectionStrings__DefaultConnection="Host=postgres_db;Port=5432;Database=affordstack_db;Username=devuser;Password=devpassword123;Include Error Detail=true" \
+            affordstack-backend:latest
           docker image prune -f

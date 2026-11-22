@@ -3,17 +3,17 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-preview-alpine AS build
 WORKDIR /src
 
 # Copy all csproj files first for layer caching
-COPY ["SoftwareServices.API/SoftwareServices.API.csproj", "SoftwareServices.API/"]
-COPY ["SoftwareServices.Application/SoftwareServices.Application.csproj", "SoftwareServices.Application/"]
-COPY ["SoftwareServices.Domain/SoftwareServices.Domain.csproj", "SoftwareServices.Domain/"]
-COPY ["SoftwareServices.Infrastructure/SoftwareServices.Infrastructure.csproj", "SoftwareServices.Infrastructure/"]
+COPY ["AffordStack.API/AffordStack.API.csproj", "AffordStack.API/"]
+COPY ["AffordStack.Application/AffordStack.Application.csproj", "AffordStack.Application/"]
+COPY ["AffordStack.Domain/AffordStack.Domain.csproj", "AffordStack.Domain/"]
+COPY ["AffordStack.Infrastructure/AffordStack.Infrastructure.csproj", "AffordStack.Infrastructure/"]
 
-RUN dotnet restore "SoftwareServices.API/SoftwareServices.API.csproj"
+RUN dotnet restore "AffordStack.API/AffordStack.API.csproj"
 
 # Copy source and publish
 COPY . .
-WORKDIR "/src/SoftwareServices.API"
-RUN dotnet publish "SoftwareServices.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
+WORKDIR "/src/AffordStack.API"
+RUN dotnet publish "AffordStack.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview-alpine AS runtime
@@ -24,4 +24,4 @@ EXPOSE 5000
 ENV ASPNETCORE_URLS=http://+:5000
 ENV ASPNETCORE_ENVIRONMENT=Production
 
-ENTRYPOINT ["dotnet", "SoftwareServices.API.dll"]
+ENTRYPOINT ["dotnet", "AffordStack.API.dll"]
