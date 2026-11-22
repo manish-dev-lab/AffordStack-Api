@@ -675,6 +675,9 @@ public class UserAuthService : IUserAuthService
                 QuotationSecureToken = activeQuote?.SecureToken,
                 QuotationAmount = activeQuote?.TotalAmount,
                 QuotationStatus = activeQuote?.Status,
+                QuotationIsAdvancePaid = activeQuote?.IsAdvancePaid ?? false,
+                QuotationAdvanceAmount = activeQuote?.AdvancePaymentAmount,
+                QuotationAdvancePaidAt = activeQuote?.AdvancePaidAt,
 
                 ProjectId = project?.Id,
                 ProjectNumber = project?.ProjectNumber,
@@ -689,7 +692,10 @@ public class UserAuthService : IUserAuthService
                     DueDate = m.DueDate,
                     IsCompleted = m.IsCompleted,
                     CompletedAt = m.CompletedAt,
-                    Amount = m.Amount
+                    Amount = m.Amount,
+                    IsPaid = m.IsPaid,
+                    PaidAt = m.PaidAt,
+                    PaymentReference = m.PaymentReference
                 }).ToList() ?? new()
             };
         }).ToList();

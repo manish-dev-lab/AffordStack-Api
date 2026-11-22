@@ -83,6 +83,9 @@ public class UserEnquirySummaryDto
     public string? QuotationSecureToken { get; set; }
     public decimal? QuotationAmount { get; set; }
     public QuotationStatus? QuotationStatus { get; set; }
+    public bool QuotationIsAdvancePaid { get; set; }
+    public decimal? QuotationAdvanceAmount { get; set; }
+    public DateTime? QuotationAdvancePaidAt { get; set; }
 
     // Linked project details if available
     public int? ProjectId { get; set; }

@@ -238,6 +238,7 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             b.ToTable("project_milestones");
             b.Property(m => m.Title).HasMaxLength(200).IsRequired();
             b.Property(m => m.Amount).HasPrecision(18, 2);
+            b.Property(m => m.PaymentReference).HasMaxLength(150);
 
             b.HasOne(m => m.Project)
              .WithMany(p => p.Milestones)
@@ -252,16 +253,24 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
             b.Property(p => p.Amount).HasPrecision(18, 2);
             b.Property(p => p.PaymentMethod).HasMaxLength(100).IsRequired();
             b.Property(p => p.TransactionReference).HasMaxLength(150);
+            b.Property(p => p.CashfreeOrderId).HasMaxLength(100);
+            b.Property(p => p.CashfreePaymentId).HasMaxLength(100);
 
             b.HasOne(p => p.Project)
              .WithMany(pr => pr.Payments)
              .HasForeignKey(p => p.ProjectId)
-             .OnDelete(DeleteBehavior.Restrict);
+             .OnDelete(DeleteBehavior.Restrict)
+             .IsRequired(false);
 
             b.HasOne(p => p.Customer)
              .WithMany()
              .HasForeignKey(p => p.CustomerId)
              .OnDelete(DeleteBehavior.Restrict);
+
+            b.HasOne(p => p.Quotation)
+             .WithMany()
+             .HasForeignKey(p => p.QuotationId)
+             .OnDelete(DeleteBehavior.SetNull);
         });
 
         // PortfolioProject

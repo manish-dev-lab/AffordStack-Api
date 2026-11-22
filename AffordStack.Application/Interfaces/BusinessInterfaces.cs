@@ -59,6 +59,10 @@ public interface IPaymentService
 {
     Task<PaymentDto> RecordPaymentAsync(RecordPaymentRequest request);
     Task<PagedResult<PaymentDto>> GetPaymentsAsync(int page = 1, int pageSize = 10, int? projectId = null, string? search = null);
+    Task<CashfreeOrderResponse> CreateQuotationAdvanceOrderAsync(string secureToken, string? returnUrl = null);
+    Task<CashfreeOrderResponse> CreateMilestoneOrderAsync(int milestoneId, int customerId, string? returnUrl = null);
+    Task<PaymentVerificationResponse> VerifyAndCompletePaymentAsync(string orderId);
+    Task<List<CustomerPaymentDto>> GetCustomerPaymentsAsync(int customerId);
 }
 
 public interface IDashboardService

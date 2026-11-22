@@ -291,6 +291,8 @@ public class QuotationService : IQuotationService
             ValidUntil = quotation.ValidUntil,
             TermsAndConditions = quotation.TermsAndConditions,
             Status = quotation.Status,
+            IsAdvancePaid = quotation.IsAdvancePaid,
+            AdvancePaidAt = quotation.AdvancePaidAt,
             RespondedAt = quotation.RespondedAt,
             ResponseRemarks = quotation.ResponseRemarks,
             Items = quotation.Items.Select(i => new QuotationItemDto
@@ -465,6 +467,8 @@ public class QuotationService : IQuotationService
             ValidUntil = q.ValidUntil,
             TermsAndConditions = q.TermsAndConditions,
             Status = q.Status,
+            IsAdvancePaid = q.IsAdvancePaid,
+            AdvancePaidAt = q.AdvancePaidAt,
             SecureToken = q.SecureToken,
             SentAt = q.SentAt,
             ViewedAt = q.ViewedAt,
