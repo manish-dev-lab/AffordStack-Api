@@ -21,6 +21,7 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Send OTP email verification code for new user account registration
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("send-otp")]
     public async Task<ActionResult<ApiResponse<bool>>> SendRegistrationOtp([FromBody] SendRegistrationOtpRequest request)
     {
@@ -31,6 +32,7 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Register a new user account (Optional for quotation requests)
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<ActionResult<ApiResponse<UserLoginResponse>>> Register([FromBody] UserRegisterRequest request)
     {
@@ -41,6 +43,7 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Sign in to existing user account
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<ApiResponse<UserLoginResponse>>> Login([FromBody] UserLoginRequest request)
     {
@@ -51,10 +54,14 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Get logged-in user profile and summary metrics
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "CustomerOnly")]
     [HttpGet("profile")]
     public async Task<ActionResult<ApiResponse<UserProfileDto>>> GetProfile()
     {
+        var userType = User.FindFirstValue("user_type");
+        if (userType != "customer")
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<UserProfileDto>.Fail("Access denied. Customer session required."));
+
         var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(idStr, out var userId))
             return Unauthorized(ApiResponse<UserProfileDto>.Fail("Invalid session."));
@@ -66,10 +73,14 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Update logged-in user profile details (Name, Phone, Company)
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "CustomerOnly")]
     [HttpPut("profile")]
     public async Task<ActionResult<ApiResponse<UserProfileDto>>> UpdateProfile([FromBody] UpdateUserProfileRequest request)
     {
+        var userType = User.FindFirstValue("user_type");
+        if (userType != "customer")
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<UserProfileDto>.Fail("Access denied. Customer session required."));
+
         var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(idStr, out var userId))
             return Unauthorized(ApiResponse<UserProfileDto>.Fail("Invalid session."));
@@ -81,10 +92,14 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Request OTP verification code to change account email address
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "CustomerOnly")]
     [HttpPost("profile/request-email-change")]
     public async Task<ActionResult<ApiResponse<bool>>> RequestEmailChange([FromBody] RequestEmailChangeOtpRequest request)
     {
+        var userType = User.FindFirstValue("user_type");
+        if (userType != "customer")
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<bool>.Fail("Access denied. Customer session required."));
+
         var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(idStr, out var userId))
             return Unauthorized(ApiResponse<bool>.Fail("Invalid session."));
@@ -96,10 +111,14 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Verify OTP and update account email address across database
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "CustomerOnly")]
     [HttpPost("profile/confirm-email-change")]
     public async Task<ActionResult<ApiResponse<UserLoginResponse>>> ConfirmEmailChange([FromBody] ConfirmEmailChangeRequest request)
     {
+        var userType = User.FindFirstValue("user_type");
+        if (userType != "customer")
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<UserLoginResponse>.Fail("Access denied. Customer session required."));
+
         var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(idStr, out var userId))
             return Unauthorized(ApiResponse<UserLoginResponse>.Fail("Invalid session."));
@@ -111,10 +130,14 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Get past and current enquiries for the logged-in user
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "CustomerOnly")]
     [HttpGet("enquiries")]
     public async Task<ActionResult<ApiResponse<List<UserEnquirySummaryDto>>>> GetMyEnquiries()
     {
+        var userType = User.FindFirstValue("user_type");
+        if (userType != "customer")
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<List<UserEnquirySummaryDto>>.Fail("Access denied. Customer session required."));
+
         var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(idStr, out var userId))
             return Unauthorized(ApiResponse<List<UserEnquirySummaryDto>>.Fail("Invalid session."));
@@ -126,6 +149,7 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Send OTP email verification code for password reset
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("forgot-password")]
     public async Task<ActionResult<ApiResponse<bool>>> ForgotPassword([FromBody] UserForgotPasswordRequest request)
     {
@@ -136,6 +160,7 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Reset user password using OTP verification code
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("reset-password")]
     public async Task<ActionResult<ApiResponse<bool>>> ResetPassword([FromBody] UserResetPasswordRequest request)
     {
@@ -146,10 +171,14 @@ public class UserAuthController : ControllerBase
     /// <summary>
     /// Change user password
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "CustomerOnly")]
     [HttpPost("change-password")]
     public async Task<ActionResult<ApiResponse<bool>>> ChangePassword([FromBody] UserChangePasswordRequest request)
     {
+        var userType = User.FindFirstValue("user_type");
+        if (userType != "customer")
+            return StatusCode(StatusCodes.Status403Forbidden, ApiResponse<bool>.Fail("Access denied. Customer session required."));
+
         var idStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!int.TryParse(idStr, out var userId))
             return Unauthorized(ApiResponse<bool>.Fail("Invalid session."));

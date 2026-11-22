@@ -649,32 +649,14 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
     {
         try
         {
-            // If already seeded with 20+ enquiries, skip
-            var enquiryCount = await context.Enquiries.CountAsync();
-            if (enquiryCount >= 20)
+            // If customers or enquiries already exist, preserve live database and do not touch business data
+            if (await context.Customers.AnyAsync() || await context.Enquiries.AnyAsync())
             {
-                logger.LogInformation("Database already has {Count} enquiries. Sample business data is already populated.", enquiryCount);
+                logger.LogInformation("Database already contains customer and enquiry data. Skipping sample business data seeding.");
                 return;
             }
 
-            logger.LogInformation("Seeding fresh sample business dataset (25 customers, 25 enquiries, quotations, projects, earnings, and users)...");
-
-            if (context is DbContext efDbContext)
-            {
-                await efDbContext.Database.ExecuteSqlRawAsync(@"
-                    DELETE FROM payments;
-                    DELETE FROM project_milestones;
-                    DELETE FROM projects;
-                    DELETE FROM quotation_items;
-                    DELETE FROM quotation_status_histories;
-                    DELETE FROM quotations;
-                    DELETE FROM enquiry_notes;
-                    DELETE FROM enquiry_attachments;
-                    DELETE FROM enquiries;
-                    DELETE FROM users;
-                    DELETE FROM customers;
-                ");
-            }
+            logger.LogInformation("Seeding fresh sample business dataset (25 customers, 25 enquiries, quotations, projects, earnings)...");
 
             // Retrieve service categories
             var categories = await context.ServiceCategories.ToListAsync();
@@ -728,30 +710,7 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
             context.Customers.AddRange(customers);
             await context.SaveChangesAsync();
 
-            // 2. Create 5 Registered Users linked to the first 5 customers
-            var testPasswordHash = BCrypt.Net.BCrypt.HashPassword("User@123");
-            var users = new List<User>();
-            for (int i = 0; i < 5; i++)
-            {
-                var cust = customers[i];
-                users.Add(new User
-                {
-                    FullName = cust.FullName,
-                    Email = cust.Email,
-                    PhoneNumber = cust.PhoneNumber,
-                    CompanyName = cust.CompanyName,
-                    PasswordHash = testPasswordHash,
-                    CustomerId = cust.Id,
-                    IsEmailVerified = true,
-                    IsActive = true,
-                    CreatedAt = cust.CreatedAt,
-                    LastLoginAt = DateTime.UtcNow.AddHours(-Random.Shared.Next(1, 48))
-                });
-            }
-
-            context.Users.AddRange(users);
-            await context.SaveChangesAsync();
-
+            // 2. Real registered users are NOT seeded; they register through client portal.
             // 3. Create 25 Enquiries with realistic details
             var enquiryConfigs = new (string Title, string Tech, string Budget, string Timeline, int CatIndex, EnquiryStatus Status, int CustIndex)[]
             {
@@ -802,7 +761,7 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
                     EstimatedBudget = cfg.Budget,
                     Status = cfg.Status,
                     CreatedAt = createdDate,
-                    UserId = cfg.CustIndex < users.Count ? users[cfg.CustIndex].Id : null
+                    UserId = null
                 };
 
                 enquiries.Add(enq);

@@ -78,7 +78,26 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("CustomerOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim("user_type", "customer");
+        policy.RequireRole("Customer");
+    });
+
+    options.AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+        policy.RequireClaim("user_type", "admin");
+        policy.RequireRole(
+            SoftwareServices.Domain.Enums.AdminRole.SuperAdmin.ToString(),
+            SoftwareServices.Domain.Enums.AdminRole.Admin.ToString(),
+            SoftwareServices.Domain.Enums.AdminRole.Manager.ToString()
+        );
+    });
+});
 
 // 6. CORS Configuration
 builder.Services.AddCors(options =>

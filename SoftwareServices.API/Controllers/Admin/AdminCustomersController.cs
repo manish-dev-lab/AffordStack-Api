@@ -19,7 +19,7 @@ public class CustomerListDto
     public DateTime CreatedAt { get; set; }
 }
 
-[Authorize]
+[Authorize(Policy = "AdminOnly")]
 [ApiController]
 [Route("api/admin/customers")]
 public class AdminCustomersController : ControllerBase

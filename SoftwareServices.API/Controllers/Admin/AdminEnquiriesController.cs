@@ -8,7 +8,7 @@ using System.Security.Claims;
 
 namespace SoftwareServices.API.Controllers.Admin;
 
-[Authorize]
+[Authorize(Policy = "AdminOnly")]
 [ApiController]
 [Route("api/admin/enquiries")]
 public class AdminEnquiriesController : ControllerBase

@@ -7,7 +7,7 @@ using SoftwareServices.Domain.Enums;
 
 namespace SoftwareServices.API.Controllers.Admin;
 
-[Authorize]
+[Authorize(Policy = "AdminOnly")]
 [ApiController]
 [Route("api/admin/projects")]
 public class AdminProjectsController : ControllerBase
