@@ -4,7 +4,8 @@ namespace AffordStack.Application.DTOs.Payment;
 
 public class RecordPaymentRequest
 {
-    public int ProjectId { get; set; }
+    public int? ProjectId { get; set; }
+    public int? QuotationId { get; set; }
     public PaymentType PaymentType { get; set; } = PaymentType.Advance;
     public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     public decimal Amount { get; set; }
@@ -17,11 +18,15 @@ public class RecordPaymentRequest
 public class PaymentDto
 {
     public int Id { get; set; }
-    public int ProjectId { get; set; }
-    public string ProjectNumber { get; set; } = string.Empty;
-    public string ProjectTitle { get; set; } = string.Empty;
+    public int? ProjectId { get; set; }
+    public string? ProjectNumber { get; set; }
+    public string? ProjectTitle { get; set; }
     public int CustomerId { get; set; }
     public string CustomerName { get; set; } = string.Empty;
+    public int? QuotationId { get; set; }
+    public string? QuotationNumber { get; set; }
+    public string? CashfreeOrderId { get; set; }
+    public string? CashfreePaymentId { get; set; }
 
     public PaymentType PaymentType { get; set; }
     public DateTime PaymentDate { get; set; }

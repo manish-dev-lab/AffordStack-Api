@@ -13,4 +13,7 @@ public class ProjectMilestone : BaseEntity
     public bool IsCompleted { get; set; } = false;
     public DateTime? CompletedAt { get; set; }
     public decimal Amount { get; set; } = 0;
+    public bool IsPaid { get; set; } = false;
+    public DateTime? PaidAt { get; set; }
+    public string? PaymentReference { get; set; }
 }

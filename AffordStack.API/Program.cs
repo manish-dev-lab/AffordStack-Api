@@ -34,6 +34,7 @@ builder.Services.AddSingleton<IBackgroundEmailQueue, BackgroundEmailQueue>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IPdfQuotationGenerator, PdfQuotationGenerator>();
+builder.Services.AddHttpClient<ICashfreeService, CashfreeService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserAuthService, UserAuthService>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();

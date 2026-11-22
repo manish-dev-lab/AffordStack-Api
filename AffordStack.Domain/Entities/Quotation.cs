@@ -31,6 +31,9 @@ public class Quotation : BaseEntity
     public QuotationStatus Status { get; set; } = QuotationStatus.Draft;
     public string SecureToken { get; set; } = Guid.NewGuid().ToString("N");
 
+    public bool IsAdvancePaid { get; set; } = false;
+    public DateTime? AdvancePaidAt { get; set; }
+
     public DateTime? SentAt { get; set; }
     public DateTime? ViewedAt { get; set; }
     public DateTime? RespondedAt { get; set; }

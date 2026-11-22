@@ -75,6 +75,8 @@ public class QuotationDto
 
     public QuotationStatus Status { get; set; }
     public string SecureToken { get; set; } = string.Empty;
+    public bool IsAdvancePaid { get; set; }
+    public DateTime? AdvancePaidAt { get; set; }
     public DateTime? SentAt { get; set; }
     public DateTime? ViewedAt { get; set; }
     public DateTime? RespondedAt { get; set; }
@@ -107,6 +109,8 @@ public class PublicQuotationDto
     public string TermsAndConditions { get; set; } = string.Empty;
 
     public QuotationStatus Status { get; set; }
+    public bool IsAdvancePaid { get; set; }
+    public DateTime? AdvancePaidAt { get; set; }
     public DateTime? RespondedAt { get; set; }
     public string? ResponseRemarks { get; set; }
 

@@ -46,6 +46,9 @@ public class ProjectMilestoneDto
     public bool IsCompleted { get; set; }
     public DateTime? CompletedAt { get; set; }
     public decimal Amount { get; set; }
+    public bool IsPaid { get; set; }
+    public DateTime? PaidAt { get; set; }
+    public string? PaymentReference { get; set; }
 }
 
 public class ProjectDto
