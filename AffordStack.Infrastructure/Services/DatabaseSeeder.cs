@@ -634,8 +634,8 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
                 logger.LogWarning("Notice during AppConfigurations seeding: {Message}", cfgEx.Message);
             }
 
-            // 8. Seed Rich Sample Business Data (25 Enquiries, 25 Customers, Quotations, Earnings & Payments)
-            await SeedSampleBusinessDataAsync(context, logger);
+            // 8. Sample Business Data Seeder - Disabled permanently to ensure production starts completely clean with zero test enquiries/quotes
+            // await SeedSampleBusinessDataAsync(context, logger);
 
             logger.LogInformation("Database seed verification completed.");
         }
