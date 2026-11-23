@@ -27,14 +27,24 @@ public class CashfreeService : ICashfreeService
         _settings = new CashfreeSettings();
         configuration.GetSection(CashfreeSettings.SectionName).Bind(_settings);
 
-        // Fallbacks if not set in config
-        if (string.IsNullOrWhiteSpace(_settings.AppId))
+        // Fallbacks if not set in config or set to placeholder
+        if (string.IsNullOrWhiteSpace(_settings.AppId) || _settings.AppId.Contains("PLACEHOLDER") || _settings.AppId.Contains("1029384756"))
         {
-            _settings.AppId = configuration["CASHFREE_APP_ID"] ?? "TEST1029384756";
+            _settings.AppId = configuration["CASHFREE_APP_ID"]
+                ?? configuration["Cashfree:AppId"]
+                ?? configuration["Cashfree__AppId"]
+                ?? System.Environment.GetEnvironmentVariable("CASHFREE_APP_ID")
+                ?? System.Environment.GetEnvironmentVariable("Cashfree__AppId")
+                ?? "TEST1029384756";
         }
-        if (string.IsNullOrWhiteSpace(_settings.SecretKey))
+        if (string.IsNullOrWhiteSpace(_settings.SecretKey) || _settings.SecretKey.Contains("PLACEHOLDER"))
         {
-            _settings.SecretKey = configuration["CASHFREE_SECRET_KEY"] ?? "TEST_SECRET_KEY_PLACEHOLDER";
+            _settings.SecretKey = configuration["CASHFREE_SECRET_KEY"]
+                ?? configuration["Cashfree:SecretKey"]
+                ?? configuration["Cashfree__SecretKey"]
+                ?? System.Environment.GetEnvironmentVariable("CASHFREE_SECRET_KEY")
+                ?? System.Environment.GetEnvironmentVariable("Cashfree__SecretKey")
+                ?? "TEST_SECRET_KEY_PLACEHOLDER";
         }
 
         _httpClient.BaseAddress = new Uri(_settings.BaseUrl);
