@@ -60,6 +60,29 @@ END $$;
                 }
             }
 
+            // Sanitize any legacy viva references in existing database records
+            try
+            {
+                var vivaServices = await context.Services.Where(s => s.Title.Contains("Viva") || s.FeaturesJson.Contains("Viva") || s.BenefitsJson.Contains("Viva")).ToListAsync();
+                foreach (var s in vivaServices)
+                {
+                    s.Title = s.Title.Replace("Viva Preparation", "Project Setup & Code Walkthrough").Replace("Viva", "Code Walkthrough");
+                    s.ShortDescription = s.ShortDescription.Replace("viva", "code walkthrough").Replace("Viva", "Code Walkthrough");
+                    s.FullDescription = s.FullDescription.Replace("viva", "code walkthrough").Replace("Viva", "Code Walkthrough");
+                    s.FeaturesJson = s.FeaturesJson.Replace("Viva Prep", "Setup & Docs Guide").Replace("Viva", "Code Walkthrough");
+                    s.BenefitsJson = s.BenefitsJson.Replace("external viva questions", "code walkthrough").Replace("viva", "code walkthrough").Replace("Viva", "Code Walkthrough");
+                }
+                if (vivaServices.Any())
+                {
+                    await context.SaveChangesAsync();
+                    logger.LogInformation("Sanitized {Count} legacy services with viva terminology.", vivaServices.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning("Notice during service hygiene check: {Message}", ex.Message);
+            }
+
             // 1. Seed or Verify Default Admin User
             var defaultAdmin = await context.AdminUsers.FirstOrDefaultAsync(u => u.Username.ToLower() == "admin");
             if (defaultAdmin == null)
