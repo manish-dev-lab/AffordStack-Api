@@ -24,5 +24,10 @@ jobs:
             --restart always \
             --network app-network \
             -e ConnectionStrings__DefaultConnection="Host=postgres_db;Port=5432;Database=affordstack_db;Username=devuser;Password=devpassword123;Include Error Detail=true" \
+            -e CASHFREE_APP_ID="${{ secrets.CASHFREE_APP_ID }}" \
+            -e CASHFREE_SECRET_KEY="${{ secrets.CASHFREE_SECRET_KEY }}" \
+            -e Cashfree__AppId="${{ secrets.CASHFREE_APP_ID }}" \
+            -e Cashfree__SecretKey="${{ secrets.CASHFREE_SECRET_KEY }}" \
+            -e Cashfree__Environment="SANDBOX" \
             affordstack-backend:latest
           docker image prune -f
