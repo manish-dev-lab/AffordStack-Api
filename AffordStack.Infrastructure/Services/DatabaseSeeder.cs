@@ -87,6 +87,37 @@ END $$;
                     await context.SaveChangesAsync();
                     logger.LogInformation("Sanitized legacy services with viva terminology.");
                 }
+
+                // Sanitize any legacy viva references in existing database testimonials
+                var existingTestimonials = await context.Testimonials.ToListAsync();
+                bool testimonialUpdated = false;
+                foreach (var t in existingTestimonials)
+                {
+                    if (t.Feedback.Contains("viva", StringComparison.OrdinalIgnoreCase))
+                    {
+                        t.Feedback = t.Feedback.Replace("1-on-1 viva coaching", "1-on-1 code walkthrough", StringComparison.OrdinalIgnoreCase)
+                                               .Replace("viva coaching", "code walkthrough", StringComparison.OrdinalIgnoreCase)
+                                               .Replace("viva", "code walkthrough", StringComparison.OrdinalIgnoreCase);
+                        testimonialUpdated = true;
+                    }
+                }
+                if (testimonialUpdated)
+                {
+                    await context.SaveChangesAsync();
+                    logger.LogInformation("Sanitized legacy testimonials with viva references.");
+                }
+
+                // Update legacy "Cashfree PG" payment method to "UPI / Online"
+                var pgPayments = await context.Payments.Where(p => p.PaymentMethod == "Cashfree PG").ToListAsync();
+                if (pgPayments.Any())
+                {
+                    foreach (var p in pgPayments)
+                    {
+                        p.PaymentMethod = "UPI / Online";
+                    }
+                    await context.SaveChangesAsync();
+                    logger.LogInformation("Updated legacy Cashfree PG payment methods.");
+                }
             }
             catch (Exception ex)
             {

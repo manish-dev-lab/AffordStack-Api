@@ -183,6 +183,7 @@ public class CashfreeService : ICashfreeService
             // Now check payment attempts to retrieve the cf_payment_id
             string? paymentId = null;
             DateTime? paidAt = null;
+            string? paymentMethodStr = null;
 
             try
             {
@@ -202,10 +203,20 @@ public class CashfreeService : ICashfreeService
                             if (pStatus == "SUCCESS")
                             {
                                 paymentId = elem.TryGetProperty("cf_payment_id", out var cpid) ? cpid.GetString() : null;
-                                if (elem.TryGetProperty("payment_time", out var pt) && DateTime.TryParse(pt.GetString(), out var dt))
+                                if (elem.TryGetProperty("payment_time", out var pt))
                                 {
-                                    paidAt = dt;
+                                    var ptStr = pt.GetString();
+                                    if (DateTimeOffset.TryParse(ptStr, out var dto))
+                                    {
+                                        paidAt = dto.UtcDateTime;
+                                    }
+                                    else if (DateTime.TryParse(ptStr, out var dt))
+                                    {
+                                        paidAt = DateTime.SpecifyKind(dt, DateTimeKind.Utc);
+                                    }
                                 }
+
+                                paymentMethodStr = ExtractPaymentMethod(elem);
                                 break;
                             }
                         }
@@ -231,6 +242,7 @@ public class CashfreeService : ICashfreeService
                 Status = orderStatus,
                 Amount = orderAmount,
                 PaidAt = paidAt ?? (isPaid ? DateTime.UtcNow : null),
+                PaymentMethod = paymentMethodStr ?? "Cashfree Online",
                 Message = isPaid ? "Payment successfully captured by Cashfree." : $"Order status is {orderStatus}."
             };
         }
@@ -286,6 +298,90 @@ public class CashfreeService : ICashfreeService
             return digitsOnly.PadLeft(10, '9');
         }
         return digitsOnly;
+    }
+
+    private static string ExtractPaymentMethod(JsonElement elem)
+    {
+        try
+        {
+            string? group = elem.TryGetProperty("payment_group", out var pg) ? pg.GetString()?.ToLowerInvariant() : null;
+
+            if (elem.TryGetProperty("payment_method", out var pm) && pm.ValueKind == JsonValueKind.Object)
+            {
+                // 1. UPI
+                if (pm.TryGetProperty("upi", out var upiObj) && upiObj.ValueKind == JsonValueKind.Object)
+                {
+                    string? channel = upiObj.TryGetProperty("channel", out var ch) ? ch.GetString() : null;
+                    var channelName = channel?.ToLowerInvariant() switch
+                    {
+                        "gpay" => "Google Pay",
+                        "phonepe" => "PhonePe",
+                        "paytm" => "Paytm",
+                        "bhim" => "BHIM UPI",
+                        "cred" => "CRED UPI",
+                        _ => !string.IsNullOrWhiteSpace(channel) ? channel : "UPI"
+                    };
+
+                    return channelName == "UPI" ? "UPI" : $"UPI ({channelName})";
+                }
+
+                // 2. Card
+                if (pm.TryGetProperty("card", out var cardObj) && cardObj.ValueKind == JsonValueKind.Object)
+                {
+                    string? network = cardObj.TryGetProperty("card_network", out var cnet) ? cnet.GetString() : null;
+                    string? cardType = cardObj.TryGetProperty("card_type", out var ct) ? ct.GetString() : null;
+                    string? bank = cardObj.TryGetProperty("card_bank_name", out var cb) ? cb.GetString() : null;
+
+                    string typeFormatted = cardType?.ToLowerInvariant() switch
+                    {
+                        "credit_card" => "Credit Card",
+                        "debit_card" => "Debit Card",
+                        "prepaid_card" => "Prepaid Card",
+                        _ => "Card"
+                    };
+
+                    string networkFormatted = !string.IsNullOrWhiteSpace(network)
+                        ? char.ToUpper(network[0]) + network.Substring(1).ToLower()
+                        : "";
+
+                    if (!string.IsNullOrWhiteSpace(networkFormatted) && !string.IsNullOrWhiteSpace(bank))
+                        return $"{bank} {networkFormatted} {typeFormatted}".Trim();
+                    if (!string.IsNullOrWhiteSpace(networkFormatted))
+                        return $"{networkFormatted} {typeFormatted}".Trim();
+                    return typeFormatted;
+                }
+
+                // 3. Net Banking
+                if (pm.TryGetProperty("netbanking", out var nbObj) && nbObj.ValueKind == JsonValueKind.Object)
+                {
+                    string? bankName = nbObj.TryGetProperty("netbanking_bank_name", out var bn) ? bn.GetString() : null;
+                    return !string.IsNullOrWhiteSpace(bankName) ? $"Net Banking ({bankName})" : "Net Banking";
+                }
+
+                // 4. Wallet / App
+                if (pm.TryGetProperty("app", out var appObj) && appObj.ValueKind == JsonValueKind.Object)
+                {
+                    string? provider = appObj.TryGetProperty("provider", out var pv) ? pv.GetString() : null;
+                    return !string.IsNullOrWhiteSpace(provider) ? $"Wallet ({provider})" : "Wallet";
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(group))
+            {
+                return group switch
+                {
+                    "upi" => "UPI",
+                    "card" => "Credit / Debit Card",
+                    "netbanking" => "Net Banking",
+                    "wallet" => "Mobile Wallet",
+                    "paylater" => "Pay Later",
+                    _ => char.ToUpper(group[0]) + group.Substring(1).ToLower()
+                };
+            }
+        }
+        catch { }
+
+        return "Cashfree Online";
     }
 
     private static string SanitizeIdentifier(string? id)

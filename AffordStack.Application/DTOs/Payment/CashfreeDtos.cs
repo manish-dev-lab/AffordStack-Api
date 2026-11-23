@@ -29,6 +29,7 @@ public class PaymentVerificationResponse
     public decimal Amount { get; set; }
     public string Message { get; set; } = string.Empty;
     public DateTime? PaidAt { get; set; }
+    public string? PaymentMethod { get; set; }
 }
 
 public class CustomerPaymentDto

@@ -113,11 +113,13 @@ public class PaymentServiceTests
         Assert.Equal(ProjectStatus.InProgress, refreshedQuote.Project.Status);
         Assert.NotEmpty(refreshedQuote.Project.Milestones);
 
-        // Verify Kickoff milestone marked as Paid
-        var kickoffMilestone = refreshedQuote.Project.Milestones.FirstOrDefault(m => m.Title.Contains("Kickoff"));
-        Assert.NotNull(kickoffMilestone);
-        Assert.True(kickoffMilestone.IsPaid);
-        Assert.True(kickoffMilestone.IsCompleted);
+        // Verify single default delivery milestone created for remaining balance
+        Assert.Single(refreshedQuote.Project.Milestones);
+        var defaultMilestone = refreshedQuote.Project.Milestones.First();
+        Assert.NotNull(defaultMilestone);
+        Assert.Contains("Delivery", defaultMilestone.Title);
+        Assert.Equal(35000m, defaultMilestone.Amount); // 50000 total - 15000 advance = 35000 remaining
+        Assert.False(defaultMilestone.IsPaid);
 
         // Verify Payment Record created in database
         var paymentRecord = await context.Payments
