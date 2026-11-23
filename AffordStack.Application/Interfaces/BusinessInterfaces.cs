@@ -98,6 +98,8 @@ public interface IContentService
     // Testimonials
     Task<List<TestimonialDto>> GetTestimonialsAsync(bool featuredOnly = false);
     Task<TestimonialDto> CreateTestimonialAsync(CreateTestimonialRequest request);
+    Task<TestimonialDto> UpdateTestimonialAsync(int id, CreateTestimonialRequest request);
+    Task<bool> DeleteTestimonialAsync(int id);
 
     // Settings
     Task<Dictionary<string, string>> GetWebsiteSettingsAsync();

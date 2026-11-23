@@ -342,7 +342,7 @@ public class PaymentService : IPaymentService
 
                         project.Milestones.Add(new ProjectMilestone
                         {
-                            Title = "Final Deployment, Handover & Viva/Docs",
+                            Title = "Final Deployment, Code Explanation & Documentation",
                             Description = "Testing, code explanation, documentation and final handover.",
                             DueDate = quotation.ExpectedDeliveryDate,
                             IsCompleted = false,
@@ -352,6 +352,7 @@ public class PaymentService : IPaymentService
 
                         _context.Projects.Add(project);
                         quotation.Project = project;
+                        await _context.SaveChangesAsync();
                     }
                 }
                 else if (quotation.Project != null)
@@ -370,6 +371,7 @@ public class PaymentService : IPaymentService
                 var payment = new Payment
                 {
                     ProjectId = quotation.Project?.Id,
+                    Project = quotation.Project,
                     QuotationId = quotation.Id,
                     CustomerId = quotation.CustomerId,
                     PaymentType = PaymentType.Advance,

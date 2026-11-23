@@ -398,6 +398,54 @@ public class ContentService : IContentService
             CreatedAt = item.CreatedAt
         };
     }
+
+    public async Task<TestimonialDto> UpdateTestimonialAsync(int id, CreateTestimonialRequest request)
+    {
+        var item = await _context.Testimonials.FirstOrDefaultAsync(t => t.Id == id);
+        if (item == null)
+            throw new NotFoundException($"Testimonial #{id} not found.");
+
+        item.ClientName = request.ClientName.Trim();
+        item.ClientRole = request.ClientRole.Trim();
+        item.CompanyOrInstitution = request.CompanyOrInstitution.Trim();
+        item.Feedback = request.Feedback.Trim();
+        item.Rating = Math.Clamp(request.Rating, 1, 5);
+        item.AvatarUrl = request.AvatarUrl;
+        item.ProjectCategory = request.ProjectCategory?.Trim();
+        item.IsFeatured = request.IsFeatured;
+        item.IsActive = request.IsActive;
+        item.DisplayOrder = request.DisplayOrder;
+        item.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return new TestimonialDto
+        {
+            Id = item.Id,
+            ClientName = item.ClientName,
+            ClientRole = item.ClientRole,
+            CompanyOrInstitution = item.CompanyOrInstitution,
+            Feedback = item.Feedback,
+            Rating = item.Rating,
+            AvatarUrl = item.AvatarUrl,
+            ProjectCategory = item.ProjectCategory,
+            IsFeatured = item.IsFeatured,
+            IsActive = item.IsActive,
+            DisplayOrder = item.DisplayOrder,
+            CreatedAt = item.CreatedAt
+        };
+    }
+
+    public async Task<bool> DeleteTestimonialAsync(int id)
+    {
+        var item = await _context.Testimonials.FirstOrDefaultAsync(t => t.Id == id);
+        if (item == null)
+            throw new NotFoundException($"Testimonial #{id} not found.");
+
+        _context.Testimonials.Remove(item);
+        await _context.SaveChangesAsync();
+        return true;
+    }
     #endregion
 
     #region Settings

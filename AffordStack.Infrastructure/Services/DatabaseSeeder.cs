@@ -92,7 +92,7 @@ END $$;
                 {
                     Name = "Student Project Guidance",
                     Slug = "student-project-guidance",
-                    Description = "Comprehensive academic project mentoring for MCA, BCA, B.Tech and M.Tech students. Complete guidance from architecture and database design to execution, code walkthrough and viva defense.",
+                    Description = "Comprehensive academic project mentoring for MCA, BCA, B.Tech and M.Tech students. Complete guidance from architecture and database design to execution, code walkthrough and project setup.",
                     IconName = "GraduationCap",
                     DisplayOrder = 1,
                     IsActive = true
@@ -131,9 +131,9 @@ END $$;
                         Slug = "dotnet-student-projects",
                         ShortDescription = "Major and minor project mentoring in modern C#, ASP.NET Core Web API, Entity Framework, and SQL.",
                         FullDescription = "We provide end-to-end guidance for university academic projects using the modern .NET ecosystem. Students learn clean architecture, REST API design, database modeling, and frontend integration while building real-world applications.",
-                        FeaturesJson = JsonSerializer.Serialize(new[] { "Clean Architecture & Repository Pattern", "Entity Framework Core & PostgreSQL/SQL Server", "JWT Authentication & Role Management", "RESTful API Implementation", "Comprehensive Documentation & Viva Prep" }),
+                        FeaturesJson = JsonSerializer.Serialize(new[] { "Clean Architecture & Repository Pattern", "Entity Framework Core & PostgreSQL/SQL Server", "JWT Authentication & Role Management", "RESTful API Implementation", "Comprehensive Documentation & Setup Guide" }),
                         TechnologiesJson = JsonSerializer.Serialize(new[] { ".NET 10", "C#", "ASP.NET Core", "EF Core", "PostgreSQL", "SQL Server" }),
-                        BenefitsJson = JsonSerializer.Serialize(new[] { "1-on-1 code walkthrough", "Complete understanding of technical concepts", "High grades in project evaluation", "Confidence in answering external viva questions" }),
+                        BenefitsJson = JsonSerializer.Serialize(new[] { "1-on-1 code walkthrough", "Complete understanding of technical concepts", "High grades in project evaluation", "Confidence in code walkthrough and project setup" }),
                         IconName = "Code2",
                         DisplayOrder = 1,
                         IsFeatured = true
@@ -161,7 +161,7 @@ END $$;
                         FullDescription = "Learn how modern tech companies build applications. Build single page applications using React, TypeScript, Tailwind CSS, coupled with robust backend APIs and live deployment.",
                         FeaturesJson = JsonSerializer.Serialize(new[] { "React 19 & TypeScript Development", "State Management & React Hook Form", "Responsive Tailwind CSS UI", "JWT Authentication Flow", "Cloud Deployment on Vercel / Render" }),
                         TechnologiesJson = JsonSerializer.Serialize(new[] { "React", "TypeScript", "Tailwind CSS", "Vite", "Node.js / .NET", "PostgreSQL" }),
-                        BenefitsJson = JsonSerializer.Serialize(new[] { "Portfolio-worthy live project URL", "Modern frontend design principles", "Complete viva explanation" }),
+                        BenefitsJson = JsonSerializer.Serialize(new[] { "Portfolio-worthy live project URL", "Modern frontend design principles", "Complete code walkthrough & setup guide" }),
                         IconName = "Layout",
                         DisplayOrder = 3,
                         IsFeatured = true
@@ -183,13 +183,13 @@ END $$;
                     new()
                     {
                         ServiceCategoryId = catStudent.Id,
-                        Title = "Project Demonstration & Viva Preparation",
-                        Slug = "project-viva-demonstration-prep",
-                        ShortDescription = "Rigorous mock viva sessions, source code explanation, architecture diagrams, and slide deck guidance.",
-                        FullDescription = "Having a running project is only half the battle. We prepare students for university external examiners through mock viva sessions, code explanation, and question prediction.",
-                        FeaturesJson = JsonSerializer.Serialize(new[] { "Deep dive into project source code", "System architecture & ER diagram explanation", "Top 50 expected viva questions & answers", "PowerPoint presentation coaching", "Local setup & emergency troubleshooting" }),
-                        TechnologiesJson = JsonSerializer.Serialize(new[] { "UML", "ER Modeling", "Code Review", "Presentation Coaching" }),
-                        BenefitsJson = JsonSerializer.Serialize(new[] { "Zero stage fear during viva", "Clear articulation of design choices", "Guaranteed technical confidence" }),
+                        Title = "Project Setup, Documentation & Code Walkthrough",
+                        Slug = "project-setup-documentation-walkthrough",
+                        ShortDescription = "Complete project setup, source code explanation, architecture diagrams, and documentation guidance.",
+                        FullDescription = "Having a running project is essential. We guide students through local setup, complete source code walkthrough, architecture diagrams, and IEEE documentation.",
+                        FeaturesJson = JsonSerializer.Serialize(new[] { "Deep dive into project source code", "System architecture & ER diagram explanation", "Step-by-step code walkthrough", "Project run guide & setup instructions", "Local setup & emergency troubleshooting" }),
+                        TechnologiesJson = JsonSerializer.Serialize(new[] { "UML", "ER Modeling", "Code Review", "Project Setup" }),
+                        BenefitsJson = JsonSerializer.Serialize(new[] { "Seamless local execution", "Clear articulation of design choices", "Guaranteed technical confidence" }),
                         IconName = "Award",
                         DisplayOrder = 5,
                         IsFeatured = true
@@ -468,26 +468,26 @@ If you frequently query only active or pending records, save disk space and RAM 
                     },
                     new()
                     {
-                        Title = "How to Ace Your University Final Year Project Viva: A Mentor's Guide",
-                        Slug = "how-to-ace-university-final-year-project-viva",
-                        Summary = "Top strategies for B.Tech, MCA, and M.Tech students to confidently explain code architecture, ER diagrams, and overcome examiner scrutiny.",
-                        Content = @"Most students build functional code but lose marks because they cannot defend architectural choices to external examiners. Here is how to prepare:
+                        Title = "How to Master Your University Final Year Project: Complete Setup & Code Guide",
+                        Slug = "how-to-master-university-final-year-project",
+                        Summary = "Top strategies for B.Tech, MCA, and M.Tech students to confidently understand code architecture, ER diagrams, and setup instructions.",
+                        Content = @"Most students build functional code but struggle because they cannot clearly explain architectural choices. Here is how to prepare:
 
 ### 1. Master Your ER Diagram
-Examiners almost always ask: Why is this a 1-to-many relationship instead of many-to-many? Be ready to explain foreign keys, cascade rules, and normalization.
+Understand your database model: Why is this a 1-to-many relationship instead of many-to-many? Be ready to explain foreign keys, cascade rules, and normalization.
 
 ### 2. Walk Through the Request Pipeline
 Know exactly what happens from when a user clicks 'Submit' in React: the Axios call, JWT token attachment, backend middleware, validation, EF Core transaction, and database commit.
 
-### 3. Practice Answering 'What If' Questions
-What if traffic spikes 100x? What if the database crashes during a payment? Answering with connection pooling, transaction isolation, and async processing leaves examiners thoroughly impressed.",
+### 3. Understand System Resilience and Edge Cases
+What if traffic spikes 100x? What if the database crashes during a payment? Answering with connection pooling, transaction isolation, and async processing leaves mentors thoroughly impressed.",
                         BlogCategoryId = catNet.Id,
                         AuthorName = "Academic Project Lead",
                         ThumbnailUrl = "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
                         IsPublished = true,
                         PublishedAt = DateTime.UtcNow.AddDays(-2),
                         ViewCount = 385,
-                        TagsJson = JsonSerializer.Serialize(new[] { "Student Mentoring", "Project Viva", "MCA", "B.Tech" })
+                        TagsJson = JsonSerializer.Serialize(new[] { "Student Mentoring", "Project Setup", "MCA", "B.Tech" })
                     }
                 };
 
@@ -507,7 +507,7 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
                         ClientName = "Rahul Sharma",
                         ClientRole = "M.Tech Computer Science Student",
                         CompanyOrInstitution = "NIT Rourkela",
-                        Feedback = "The guidance on my Spring Boot and React project was outstanding. Not only did they help me structure the clean architecture, but the 1-on-1 viva coaching helped me achieve an 'A' grade with special appreciation from the external examiner!",
+                        Feedback = "The guidance on my Spring Boot and React project was outstanding. Not only did they help me structure the clean architecture, but the 1-on-1 code walkthrough helped me achieve an 'A' grade with special appreciation from my department!",
                         Rating = 5,
                         AvatarUrl = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80",
                         ProjectCategory = "Student Project Guidance",
@@ -738,7 +738,7 @@ What if traffic spikes 100x? What if the database crashes during a payment? Answ
                 ("B.Tech Minor Project: Smart Attendance via Facial Recognition", "OpenCV, Python, SQLite, Tkinter / Streamlit", "₹15,000 - ₹22,000", "2 Weeks", 0, EnquiryStatus.Converted, 23),
                 ("B2B Wholesale Bidding & Reverse Auction Platform", "React, .NET Core, SignalR, PostgreSQL", "₹3,20,000 - ₹4,80,000", "3 Months", 2, EnquiryStatus.Closed, 12),
                 ("Stripe & Razorpay Payment Gateway Webhook Reconciliation", ".NET 10, Razorpay Webhooks, Stripe SDK", "₹30,000 - ₹45,000", "1 Week", 1, EnquiryStatus.Quoted, 9),
-                ("Student Code Review, Architecture Synopsis & Viva Guidance", "C#, ASP.NET Core, React, Viva Prep", "₹12,000 - ₹18,000", "1 Week", 0, EnquiryStatus.Quoted, 13)
+                ("Student Code Review, Architecture Synopsis & Setup Guidance", "C#, ASP.NET Core, React, Setup Guide", "₹12,000 - ₹18,000", "1 Week", 0, EnquiryStatus.Quoted, 13)
             };
 
             var enquiries = new List<Enquiry>();

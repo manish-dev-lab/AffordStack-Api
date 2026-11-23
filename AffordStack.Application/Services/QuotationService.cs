@@ -383,7 +383,7 @@ public class QuotationService : IQuotationService
             });
             project.Milestones.Add(new ProjectMilestone
             {
-                Title = "Final Deployment, Handover & Viva/Docs",
+                Title = "Final Deployment, Code Explanation & Documentation",
                 Description = "Testing, code explanation, documentation and final handover.",
                 DueDate = quotation.ExpectedDeliveryDate,
                 IsCompleted = false,
