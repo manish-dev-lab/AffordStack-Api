@@ -63,19 +63,29 @@ END $$;
             // Sanitize any legacy viva references in existing database records
             try
             {
-                var vivaServices = await context.Services.Where(s => s.Title.Contains("Viva") || s.FeaturesJson.Contains("Viva") || s.BenefitsJson.Contains("Viva")).ToListAsync();
-                foreach (var s in vivaServices)
+                var allServices = await context.Services.ToListAsync();
+                bool changed = false;
+                foreach (var s in allServices)
                 {
-                    s.Title = s.Title.Replace("Viva Preparation", "Project Setup & Code Walkthrough").Replace("Viva", "Code Walkthrough");
-                    s.ShortDescription = s.ShortDescription.Replace("viva", "code walkthrough").Replace("Viva", "Code Walkthrough");
-                    s.FullDescription = s.FullDescription.Replace("viva", "code walkthrough").Replace("Viva", "Code Walkthrough");
-                    s.FeaturesJson = s.FeaturesJson.Replace("Viva Prep", "Setup & Docs Guide").Replace("Viva", "Code Walkthrough");
-                    s.BenefitsJson = s.BenefitsJson.Replace("external viva questions", "code walkthrough").Replace("viva", "code walkthrough").Replace("Viva", "Code Walkthrough");
+                    if (s.Title.Contains("Viva", StringComparison.OrdinalIgnoreCase) ||
+                        s.ShortDescription.Contains("viva", StringComparison.OrdinalIgnoreCase) ||
+                        s.FullDescription.Contains("viva", StringComparison.OrdinalIgnoreCase) ||
+                        s.FeaturesJson.Contains("viva", StringComparison.OrdinalIgnoreCase) ||
+                        s.BenefitsJson.Contains("viva", StringComparison.OrdinalIgnoreCase))
+                    {
+                        s.Title = s.Title.Replace("Viva Preparation", "Project Setup & Code Walkthrough", StringComparison.OrdinalIgnoreCase)
+                                         .Replace("Viva", "Code Walkthrough", StringComparison.OrdinalIgnoreCase);
+                        s.ShortDescription = s.ShortDescription.Replace("viva", "code walkthrough", StringComparison.OrdinalIgnoreCase);
+                        s.FullDescription = s.FullDescription.Replace("viva", "code walkthrough", StringComparison.OrdinalIgnoreCase);
+                        s.FeaturesJson = s.FeaturesJson.Replace("viva", "code walkthrough", StringComparison.OrdinalIgnoreCase);
+                        s.BenefitsJson = s.BenefitsJson.Replace("viva", "code walkthrough", StringComparison.OrdinalIgnoreCase);
+                        changed = true;
+                    }
                 }
-                if (vivaServices.Any())
+                if (changed)
                 {
                     await context.SaveChangesAsync();
-                    logger.LogInformation("Sanitized {Count} legacy services with viva terminology.", vivaServices.Count);
+                    logger.LogInformation("Sanitized legacy services with viva terminology.");
                 }
             }
             catch (Exception ex)
