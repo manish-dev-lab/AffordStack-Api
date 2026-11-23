@@ -246,6 +246,12 @@ public class PaymentService : IPaymentService
 
         if (existingPayment != null)
         {
+            if (existingPayment.PaymentMethod == "Cashfree PG" && !string.IsNullOrWhiteSpace(verification.PaymentMethod) && verification.PaymentMethod != "Cashfree PG")
+            {
+                existingPayment.PaymentMethod = verification.PaymentMethod;
+                await _context.SaveChangesAsync();
+            }
+
             return new PaymentVerificationResponse
             {
                 Success = true,
@@ -254,6 +260,7 @@ public class PaymentService : IPaymentService
                 Status = "PAID",
                 Amount = existingPayment.Amount,
                 PaidAt = existingPayment.PaymentDate,
+                PaymentMethod = existingPayment.PaymentMethod,
                 Message = "Payment already confirmed and processed."
             };
         }
@@ -316,37 +323,18 @@ public class PaymentService : IPaymentService
                             InternalNotes = $"Auto-provisioned upon receipt of advance payment #{orderId}."
                         };
 
-                        // Add kickoff milestone (Mark as Paid)
-                        project.Milestones.Add(new ProjectMilestone
-                        {
-                            Title = "Project Kickoff & Architecture Setup",
-                            Description = "Initial setup, environment configuration, database design and sprint planning.",
-                            DueDate = DateTime.UtcNow.AddDays(3),
-                            IsCompleted = true,
-                            CompletedAt = DateTime.UtcNow,
-                            Amount = quotation.AdvancePaymentAmount,
-                            IsPaid = true,
-                            PaidAt = verification.PaidAt ?? DateTime.UtcNow,
-                            PaymentReference = orderId
-                        });
+                        // Single default milestone for full remaining amount (Admin will add and manage milestones)
+                        var remainingBalance = quotation.RemainingPaymentAmount > 0 
+                            ? quotation.RemainingPaymentAmount 
+                            : quotation.TotalAmount;
 
                         project.Milestones.Add(new ProjectMilestone
                         {
-                            Title = "Core Development & Milestone Review",
-                            Description = "Implementation of primary modules, APIs, and frontend integration.",
-                            DueDate = quotation.ExpectedDeliveryDate.AddDays(-5),
+                            Title = "Project Delivery & Handover",
+                            Description = "Complete development, deployment, documentation, code walkthrough and final handover.",
+                            DueDate = quotation.ExpectedDeliveryDate > DateTime.UtcNow ? quotation.ExpectedDeliveryDate : DateTime.UtcNow.AddDays(14),
                             IsCompleted = false,
-                            Amount = quotation.RemainingPaymentAmount / 2,
-                            IsPaid = false
-                        });
-
-                        project.Milestones.Add(new ProjectMilestone
-                        {
-                            Title = "Final Deployment, Code Explanation & Documentation",
-                            Description = "Testing, code explanation, documentation and final handover.",
-                            DueDate = quotation.ExpectedDeliveryDate,
-                            IsCompleted = false,
-                            Amount = quotation.RemainingPaymentAmount / 2,
+                            Amount = remainingBalance,
                             IsPaid = false
                         });
 
@@ -377,7 +365,7 @@ public class PaymentService : IPaymentService
                     PaymentType = PaymentType.Advance,
                     PaymentDate = verification.PaidAt ?? DateTime.UtcNow,
                     Amount = verification.Amount > 0 ? verification.Amount : quotation.AdvancePaymentAmount,
-                    PaymentMethod = "Cashfree PG",
+                    PaymentMethod = !string.IsNullOrWhiteSpace(verification.PaymentMethod) ? verification.PaymentMethod : "Cashfree Online",
                     TransactionReference = verification.PaymentId ?? orderId,
                     CashfreeOrderId = orderId,
                     CashfreePaymentId = verification.PaymentId,
@@ -398,6 +386,7 @@ public class PaymentService : IPaymentService
                     Status = "PAID",
                     Amount = payment.Amount,
                     PaidAt = payment.PaymentDate,
+                    PaymentMethod = payment.PaymentMethod,
                     Message = "Advance payment received successfully. Project kickoff initiated!"
                 };
             }
@@ -424,6 +413,8 @@ public class PaymentService : IPaymentService
         if (milestone != null && milestone.Project != null)
         {
             milestone.IsPaid = true;
+            milestone.IsCompleted = true;
+            milestone.CompletedAt = verification.PaidAt ?? DateTime.UtcNow;
             milestone.PaidAt = verification.PaidAt ?? DateTime.UtcNow;
             milestone.PaymentReference = orderId;
 
@@ -434,7 +425,7 @@ public class PaymentService : IPaymentService
                 PaymentType = PaymentType.Milestone,
                 PaymentDate = verification.PaidAt ?? DateTime.UtcNow,
                 Amount = verification.Amount > 0 ? verification.Amount : milestone.Amount,
-                PaymentMethod = "Cashfree PG",
+                PaymentMethod = !string.IsNullOrWhiteSpace(verification.PaymentMethod) ? verification.PaymentMethod : "Cashfree Online",
                 TransactionReference = verification.PaymentId ?? orderId,
                 CashfreeOrderId = orderId,
                 CashfreePaymentId = verification.PaymentId,
@@ -455,6 +446,7 @@ public class PaymentService : IPaymentService
                 Status = "PAID",
                 Amount = payment.Amount,
                 PaidAt = payment.PaymentDate,
+                PaymentMethod = payment.PaymentMethod,
                 Message = $"Milestone payment for '{milestone.Title}' received successfully!"
             };
         }
