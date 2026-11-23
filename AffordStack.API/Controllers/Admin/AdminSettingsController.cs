@@ -48,4 +48,24 @@ public class AdminSettingsController : ControllerBase
         var result = await _contentService.CreateTestimonialAsync(request);
         return Ok(ApiResponse<TestimonialDto>.Ok(result, "Testimonial added."));
     }
+
+    /// <summary>
+    /// Update client testimonial
+    /// </summary>
+    [HttpPut("testimonials/{id:int}")]
+    public async Task<ActionResult<ApiResponse<TestimonialDto>>> UpdateTestimonial(int id, [FromBody] CreateTestimonialRequest request)
+    {
+        var result = await _contentService.UpdateTestimonialAsync(id, request);
+        return Ok(ApiResponse<TestimonialDto>.Ok(result, "Testimonial updated."));
+    }
+
+    /// <summary>
+    /// Delete client testimonial
+    /// </summary>
+    [HttpDelete("testimonials/{id:int}")]
+    public async Task<ActionResult<ApiResponse<bool>>> DeleteTestimonial(int id)
+    {
+        var result = await _contentService.DeleteTestimonialAsync(id);
+        return Ok(ApiResponse<bool>.Ok(result, "Testimonial deleted."));
+    }
 }

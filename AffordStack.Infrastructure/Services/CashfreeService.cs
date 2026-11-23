@@ -217,7 +217,11 @@ public class CashfreeService : ICashfreeService
                 _logger.LogWarning("Failed to fetch payments array for Cashfree order {OrderId}: {Message}", orderId, ex.Message);
             }
 
-            bool isPaid = string.Equals(orderStatus, "PAID", StringComparison.OrdinalIgnoreCase);
+            bool isPaid = string.Equals(orderStatus, "PAID", StringComparison.OrdinalIgnoreCase) || !string.IsNullOrWhiteSpace(paymentId);
+            if (isPaid && !string.Equals(orderStatus, "PAID", StringComparison.OrdinalIgnoreCase))
+            {
+                orderStatus = "PAID";
+            }
 
             return new PaymentVerificationResponse
             {
