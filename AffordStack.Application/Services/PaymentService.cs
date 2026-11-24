@@ -294,58 +294,62 @@ public class PaymentService : IPaymentService
                     quotation.RespondedAt = DateTime.UtcNow;
                     quotation.ResponseRemarks = $"Accepted via Cashfree Advance Payment (Order: {orderId})";
                     quotation.UpdatedAt = DateTime.UtcNow;
-
-                    if (quotation.Enquiry != null)
-                    {
-                        quotation.Enquiry.Status = EnquiryStatus.Converted;
-                        quotation.Enquiry.UpdatedAt = DateTime.UtcNow;
-                    }
-
-                    // Create Project if not yet created
-                    if (quotation.Project == null)
-                    {
-                        var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
-                        var countToday = await _context.Projects.CountAsync(p => p.ProjectNumber.StartsWith($"PRJ-{datePrefix}"));
-                        var projNumber = $"PRJ-{datePrefix}-{(countToday + 1):D4}";
-
-                        var project = new Project
-                        {
-                            ProjectNumber = projNumber,
-                            QuotationId = quotation.Id,
-                            CustomerId = quotation.CustomerId,
-                            ProjectTitle = quotation.Enquiry?.ProjectTitle ?? quotation.ServiceDescription,
-                            Description = quotation.Deliverables,
-                            StartDate = DateTime.UtcNow,
-                            ExpectedCompletionDate = quotation.ExpectedDeliveryDate,
-                            AgreedAmount = quotation.TotalAmount,
-                            Status = ProjectStatus.InProgress,
-                            ProgressPercentage = 15,
-                            InternalNotes = $"Auto-provisioned upon receipt of advance payment #{orderId}."
-                        };
-
-                        // Single default milestone for full remaining amount (Admin will add and manage milestones)
-                        var remainingBalance = quotation.RemainingPaymentAmount > 0 
-                            ? quotation.RemainingPaymentAmount 
-                            : quotation.TotalAmount;
-
-                        project.Milestones.Add(new ProjectMilestone
-                        {
-                            Title = "Project Delivery & Handover",
-                            Description = "Complete development, deployment, documentation, code walkthrough and final handover.",
-                            DueDate = quotation.ExpectedDeliveryDate > DateTime.UtcNow ? quotation.ExpectedDeliveryDate : DateTime.UtcNow.AddDays(14),
-                            IsCompleted = false,
-                            Amount = remainingBalance,
-                            IsPaid = false
-                        });
-
-                        _context.Projects.Add(project);
-                        quotation.Project = project;
-                        await _context.SaveChangesAsync();
-                    }
                 }
-                else if (quotation.Project != null)
+
+                if (quotation.Enquiry != null && quotation.Enquiry.Status != EnquiryStatus.Converted)
                 {
-                    // If project already exists, mark kickoff milestone as paid
+                    quotation.Enquiry.Status = EnquiryStatus.Converted;
+                    quotation.Enquiry.UpdatedAt = DateTime.UtcNow;
+                }
+
+                // Create Project if not yet created (handles both newly accepted and pre-accepted awaiting advance)
+                if (quotation.Project == null)
+                {
+                    var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
+                    var countToday = await _context.Projects.CountAsync(p => p.ProjectNumber.StartsWith($"PRJ-{datePrefix}"));
+                    var projNumber = $"PRJ-{datePrefix}-{(countToday + 1):D4}";
+
+                    var project = new Project
+                    {
+                        ProjectNumber = projNumber,
+                        QuotationId = quotation.Id,
+                        CustomerId = quotation.CustomerId,
+                        ProjectTitle = quotation.Enquiry?.ProjectTitle ?? quotation.ServiceDescription,
+                        Description = quotation.Deliverables,
+                        StartDate = DateTime.UtcNow,
+                        ExpectedCompletionDate = quotation.ExpectedDeliveryDate,
+                        AgreedAmount = quotation.TotalAmount,
+                        Status = ProjectStatus.InProgress,
+                        ProgressPercentage = 15,
+                        InternalNotes = $"Auto-provisioned upon receipt of advance payment #{orderId}."
+                    };
+
+                    // Single default milestone for full remaining amount (Admin will add and manage milestones)
+                    var remainingBalance = quotation.RemainingPaymentAmount > 0 
+                        ? quotation.RemainingPaymentAmount 
+                        : quotation.TotalAmount;
+
+                    project.Milestones.Add(new ProjectMilestone
+                    {
+                        Title = "Project Delivery & Handover",
+                        Description = "Complete development, deployment, documentation, code walkthrough and final handover.",
+                        DueDate = quotation.ExpectedDeliveryDate > DateTime.UtcNow ? quotation.ExpectedDeliveryDate : DateTime.UtcNow.AddDays(14),
+                        IsCompleted = false,
+                        Amount = remainingBalance,
+                        IsPaid = false
+                    });
+
+                    _context.Projects.Add(project);
+                    quotation.Project = project;
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    // Ensure existing project is moved to InProgress upon advance payment
+                    if (quotation.Project.Status != ProjectStatus.InProgress && quotation.Project.Status != ProjectStatus.Completed)
+                    {
+                        quotation.Project.Status = ProjectStatus.InProgress;
+                    }
                     var kickoff = quotation.Project.Milestones.FirstOrDefault(m => m.Title.Contains("Kickoff") || m.Amount == quotation.AdvancePaymentAmount);
                     if (kickoff != null)
                     {

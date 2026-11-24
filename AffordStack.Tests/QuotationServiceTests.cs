@@ -131,14 +131,12 @@ public class QuotationServiceTests
             Remarks = "Looks good, approved to start!"
         });
 
-        // Assert
+        // Assert: Quotation is accepted, but project must NOT start until advance payment is received
         Assert.True(accepted);
         var refreshedQuote = await context.Quotations.Include(q => q.Project).FirstOrDefaultAsync(q => q.Id == quotation.Id);
         Assert.NotNull(refreshedQuote);
         Assert.Equal(QuotationStatus.Accepted, refreshedQuote.Status);
-        Assert.NotNull(refreshedQuote.Project);
-        Assert.Equal(ProjectStatus.InProgress, refreshedQuote.Project.Status);
-        Assert.Equal(customer.Id, refreshedQuote.Project.CustomerId);
+        Assert.Null(refreshedQuote.Project);
 
         mockEmail.Verify(e => e.SendQuotationAcceptedNotificationAsync(It.IsAny<Quotation>(), It.IsAny<Customer>()), Times.Once);
     }

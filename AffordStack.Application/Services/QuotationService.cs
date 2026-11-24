@@ -321,76 +321,73 @@ public class QuotationService : IQuotationService
         if (quotation.Status == QuotationStatus.Accepted)
             return true; // Already accepted idempotent
 
+        var previousStatus = quotation.Status;
         quotation.Status = QuotationStatus.Accepted;
         quotation.RespondedAt = DateTime.UtcNow;
         quotation.ResponseRemarks = request.Remarks?.Trim();
         quotation.UpdatedAt = DateTime.UtcNow;
 
-        if (quotation.Enquiry != null)
-        {
-            quotation.Enquiry.Status = EnquiryStatus.Converted;
-            quotation.Enquiry.UpdatedAt = DateTime.UtcNow;
-        }
-
         quotation.StatusHistory.Add(new QuotationStatusHistory
         {
             QuotationId = quotation.Id,
-            PreviousStatus = QuotationStatus.Viewed,
+            PreviousStatus = previousStatus,
             NewStatus = QuotationStatus.Accepted,
             ChangedBy = "Customer",
             Remarks = string.IsNullOrWhiteSpace(request.Remarks) ? "Accepted by customer." : $"Accepted: {request.Remarks}"
         });
 
-        // Automatically create project if not already created
-        if (quotation.Project == null)
+        // Only start the project immediately if no advance payment is pending
+        bool canStartImmediately = quotation.AdvancePaymentAmount <= 0 || quotation.IsAdvancePaid;
+
+        if (canStartImmediately)
         {
-            var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
-            var countToday = await _context.Projects.CountAsync(p => p.ProjectNumber.StartsWith($"PRJ-{datePrefix}"));
-            var projNumber = $"PRJ-{datePrefix}-{(countToday + 1):D4}";
+            if (quotation.Enquiry != null)
+            {
+                quotation.Enquiry.Status = EnquiryStatus.Converted;
+                quotation.Enquiry.UpdatedAt = DateTime.UtcNow;
+            }
 
-            var project = new Project
+            // Automatically create project if not already created
+            if (quotation.Project == null)
             {
-                ProjectNumber = projNumber,
-                QuotationId = quotation.Id,
-                CustomerId = quotation.CustomerId,
-                ProjectTitle = quotation.Enquiry?.ProjectTitle ?? quotation.ServiceDescription,
-                Description = quotation.Deliverables,
-                StartDate = DateTime.UtcNow,
-                ExpectedCompletionDate = quotation.ExpectedDeliveryDate,
-                AgreedAmount = quotation.TotalAmount,
-                Status = ProjectStatus.InProgress,
-                ProgressPercentage = 10,
-                InternalNotes = $"Automatically generated upon quotation {quotation.QuotationNumber} acceptance."
-            };
+                var datePrefix = DateTime.UtcNow.ToString("yyyyMMdd");
+                var countToday = await _context.Projects.CountAsync(p => p.ProjectNumber.StartsWith($"PRJ-{datePrefix}"));
+                var projNumber = $"PRJ-{datePrefix}-{(countToday + 1):D4}";
 
-            // Add standard initial milestones
-            project.Milestones.Add(new ProjectMilestone
-            {
-                Title = "Project Kickoff & Architecture Setup",
-                Description = "Initial setup, environment configuration, database design and sprint planning.",
-                DueDate = DateTime.UtcNow.AddDays(3),
-                IsCompleted = true,
-                CompletedAt = DateTime.UtcNow,
-                Amount = quotation.AdvancePaymentAmount
-            });
-            project.Milestones.Add(new ProjectMilestone
-            {
-                Title = "Core Development & Milestone Review",
-                Description = "Implementation of primary modules, APIs, and frontend integration.",
-                DueDate = quotation.ExpectedDeliveryDate.AddDays(-5),
-                IsCompleted = false,
-                Amount = quotation.RemainingPaymentAmount / 2
-            });
-            project.Milestones.Add(new ProjectMilestone
-            {
-                Title = "Final Deployment, Code Explanation & Documentation",
-                Description = "Testing, code explanation, documentation and final handover.",
-                DueDate = quotation.ExpectedDeliveryDate,
-                IsCompleted = false,
-                Amount = quotation.RemainingPaymentAmount / 2
-            });
+                var project = new Project
+                {
+                    ProjectNumber = projNumber,
+                    QuotationId = quotation.Id,
+                    CustomerId = quotation.CustomerId,
+                    ProjectTitle = quotation.Enquiry?.ProjectTitle ?? quotation.ServiceDescription,
+                    Description = quotation.Deliverables,
+                    StartDate = DateTime.UtcNow,
+                    ExpectedCompletionDate = quotation.ExpectedDeliveryDate,
+                    AgreedAmount = quotation.TotalAmount,
+                    Status = ProjectStatus.InProgress,
+                    ProgressPercentage = 10,
+                    InternalNotes = $"Automatically generated upon quotation {quotation.QuotationNumber} acceptance."
+                };
 
-            _context.Projects.Add(project);
+                var remainingBalance = quotation.RemainingPaymentAmount > 0
+                    ? quotation.RemainingPaymentAmount
+                    : quotation.TotalAmount;
+
+                if (remainingBalance > 0)
+                {
+                    project.Milestones.Add(new ProjectMilestone
+                    {
+                        Title = "Project Delivery & Handover",
+                        Description = "Complete development, deployment, documentation, code walkthrough and final handover.",
+                        DueDate = quotation.ExpectedDeliveryDate > DateTime.UtcNow ? quotation.ExpectedDeliveryDate : DateTime.UtcNow.AddDays(14),
+                        IsCompleted = false,
+                        Amount = remainingBalance,
+                        IsPaid = false
+                    });
+                }
+
+                _context.Projects.Add(project);
+            }
         }
 
         await _context.SaveChangesAsync();
